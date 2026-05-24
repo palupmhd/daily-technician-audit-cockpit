@@ -165,13 +165,13 @@
   function renderFollowupControls(issueId){
     const fu=getFu(issueId);
     const hasData=followupHasContent(fu);
-    const editing=isFollowupEditing(issueId) || !hasData;
+    const editing=isFollowupEditing(issueId);
     const statusOpen=isFollowupStatusOpen(issueId);
     const statuses=[
       {value:'pending',label:'Belum',title:'Belum ditindaklanjuti',pill:'neutral'},
-      {value:'clarified',label:'Diklarifikasi',title:'Sudah diklarifikasi',pill:'normal'},
-      {value:'escalated',label:'Dieskalasi',title:'Dieskalasi',pill:'medium'},
-      {value:'invalid',label:'Tidak valid',title:'Tidak valid',pill:'neutral'},
+      {value:'clarified',label:'Selesai',title:'Sudah diklarifikasi',pill:'normal'},
+      {value:'escalated',label:'Eskalasi',title:'Dieskalasi',pill:'medium'},
+      {value:'invalid',label:'Invalid',title:'Tidak valid',pill:'neutral'},
     ];
     const activeStatus=statuses.find(s=>s.value===fu.status)||statuses[0];
     if(!editing){
@@ -179,24 +179,26 @@
       return `<div class="fi-followup fi-followup-view">
         <div class="fi-followup-summary">
           <div class="fi-followup-summary-status">
-            <span class="pill ${activeStatus.pill}">${esc(activeStatus.title)}</span>
-            <button class="fi-edit-btn" type="button" data-fu-edit="${esc(issueId)}">Edit</button>
+            <span class="fi-followup-summary-label">Catatan Audit</span>
+            <button class="fi-edit-btn" type="button" data-fu-edit="${esc(issueId)}">${hasData?'Ubah':'Isi'}</button>
           </div>
-          <div class="fi-followup-summary-label">Catatan Audit</div>
+          <div class="fi-followup-summary-state">${esc(activeStatus.title)}</div>
           ${noteText?`<div class="fi-followup-summary-note">${esc(noteText)}</div>`:'<div class="fi-followup-summary-empty">Belum ada catatan.</div>'}
         </div>
       </div>`;
     }
     const chips=statuses.map(s=>`<button class="fi-status-chip ${esc(s.value)} ${fu.status===s.value?'active':''}" type="button" data-fu-status="${esc(issueId)}" data-status-value="${esc(s.value)}" title="${esc(s.title)}">${esc(s.label)}</button>`).join('');
     return `<div class="fi-followup">
-        <div class="fi-followup-note">
-          <textarea data-fu-note="${esc(issueId)}" placeholder="Tulis catatan dulu, lalu tekan Enter untuk pilih status...">${esc(fu.note||'')}</textarea>
-          <div class="fi-char-count" id="cc-${esc(issueId)}">${(fu.note||'').length} karakter</div>
-        </div>
-        <div class="fi-followup-hint">${statusOpen?'Pilih kategori status lalu catatan otomatis tersimpan.':'Enter membuka fokus status. Shift+Enter untuk baris baru.'}</div>
-        <div class="fi-followup-status ${statusOpen?'open':''}" data-fu-status-wrap="${esc(issueId)}">
-          <div class="fi-status-chips">${chips}</div>
+        <div class="fi-followup-top">
+          <span class="fi-followup-summary-label">Catatan Audit</span>
           <span class="fi-save-badge" id="save-${esc(issueId)}">Tersimpan</span>
+        </div>
+        <div class="fi-followup-note">
+          <textarea data-fu-note="${esc(issueId)}" placeholder="Tulis catatan audit...">${esc(fu.note||'')}</textarea>
+        </div>
+        <div class="fi-followup-status ${statusOpen?'open':''}" data-fu-status-wrap="${esc(issueId)}">
+          <div class="fi-status-label">Status</div>
+          <div class="fi-status-chips">${chips}</div>
         </div>
       </div>`;
   }

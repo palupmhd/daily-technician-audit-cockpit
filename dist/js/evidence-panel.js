@@ -76,8 +76,12 @@ function renderEvidence(route){
             if(i.metrics?.actualDurationMin!=null){
               benchHtml=renderBenchBar(i.metrics.actualDurationMin,i.metrics.expectedMin,i.metrics.expectedMax);
             }
+            const typeLabel=typeof issueTypeName==='function'?issueTypeName(i.type):i.type.replace(/_/g,' ');
             return `<div class="fi-item ${i.severity}" data-issue-fi="${esc(i.id)}">
-              <div class="fi-type">${esc(i.type.replace(/_/g,' '))} <span class="pill ${i.severity}" style="font-size:9px;padding:1px 5px">${esc(i.severity)}</span></div>
+              <div class="fi-type">
+                <span class="fi-type-text">${esc(typeLabel)}</span>
+                <span class="pill ${i.severity} fi-sev-pill">${esc(i.severity)}</span>
+              </div>
               <div class="fi-msg">${esc(i.message)}</div>
               ${benchHtml}
               ${i.recommendation?`<div class="fi-rec">→ ${esc(i.recommendation)}</div>`:''}
@@ -171,8 +175,6 @@ function renderEvidence(route){
       resize();
       el.addEventListener('input',()=>{
         resize();
-        const cc=document.getElementById(`cc-${id}`);
-        if(cc)cc.textContent=`${el.value.length} karakter`;
       });
       el.addEventListener('keydown',async(e)=>{
         if(e.key==='Escape'){
