@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Daily Technician Audit Cockpit</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233b82f6'/%3E%3Cpath d='M8 21.5 14 10l4.2 8 2.1-4H24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin="">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" crossorigin="">
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
+  <script src="js/app-utils.js"></script>
+  <script src="js/audit-notes.js"></script>
+  <script src="js/reports.js"></script>
+  <script src="js/ui-lists.js"></script>
+  <script src="js/gps-map.js"></script>
+  <script src="js/route-map.js"></script>
+  <script src="js/evidence-panel.js"></script>
+  <style>
+    :root {
+      --bg:#0d1117; --surface:#161b27; --surface2:#1c2333; --surface3:#212940;
+      --border:rgba(255,255,255,.08); --border2:rgba(255,255,255,.14);
+      --text:#e8edf5; --muted:#7a8aa8;
+      --accent:#3b82f6; --accent2:#6366f1;
+      --danger:#ef4444; --warn:#f59e0b; --ok:#10b981; --info:#38bdf8;
+      --r:10px; --rl:14px;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html,body{height:100%;}
+    body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;font-size:13px;line-height:1.5;}
+    button,select,input{font:inherit;color:inherit;}
+
+    .app{display:grid;grid-template-rows:52px 1fr;height:100vh;}
+
+    /* TOPBAR */
+    .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:var(--surface);border-bottom:1px solid var(--border);z-index:10;gap:12px;}
+    .topbar-left{display:flex;align-items:center;gap:10px;min-width:0;}
+    .logo-mark{width:30px;height:30px;border-radius:8px;flex-shrink:0;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;font-weight:700;font-size:14px;}
+    .topbar h1{font-size:13px;font-weight:600;letter-spacing:-.01em;}
+    .build-info{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .topbar-right{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+    .btn{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border2);background:transparent;border-radius:var(--r);padding:6px 11px;cursor:pointer;font-size:12px;font-weight:500;color:var(--muted);transition:background .12s,color .12s;white-space:nowrap;}
+    .btn svg{flex-shrink:0;}
+    .btn:hover{background:var(--surface3);color:var(--text);}
+    .btn.primary{background:var(--accent);color:#fff;border-color:transparent;}
+    .btn.primary:hover{background:#2563eb;}
+    .btn:disabled{opacity:.4;cursor:not-allowed;}
+
+    /* dropdown menu for exports */
+    .dropdown{position:relative;}
+    .dropdown-menu{position:absolute;top:calc(100% + 4px);right:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:4px;min-width:220px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.4);display:none;}
+    .dropdown.open .dropdown-menu{display:block;}
+    .dropdown-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text);}
+    .dropdown-item:hover{background:var(--surface3);}
+    .dropdown-item .desc{font-size:10px;color:var(--muted);margin-top:2px;}
+    .dropdown-item-content{flex:1;min-width:0;}
+    .dropdown-divider{height:1px;background:var(--border);margin:4px 0;}
+
+    /* SHELL */
+    .shell{display:grid;grid-template-columns:320px 1fr 380px;height:100%;overflow:hidden;}
+
+    /* LEFT PANEL */
+    .left-panel{display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface);min-height:0;overflow:hidden;}
+    .left-top{padding:12px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:8px;flex-shrink:0;}
+    .filter-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+    .field{display:flex;flex-direction:column;gap:3px;}
+    .field-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+    .field select,.field input{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:6px 8px;outline:none;font-size:12px;color:var(--text);width:100%;}
+    .field select:focus,.field input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(59,130,246,.2);}
+    .search-wrap{position:relative;}
+    .search-wrap svg{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;}
+    .search-wrap input{padding-left:28px;width:100%;}
+
+    /* checkbox-style filters */
+    .chk-row{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer;user-select:none;padding:2px 0;}
+    .chk-row input{margin:0;}
+    .chk-row:hover{color:var(--text);}
+
+    /* zone stats */
+    .zone-stats{display:grid;grid-template-columns:repeat(4,1fr);padding:10px 12px;gap:6px;border-bottom:1px solid var(--border);flex-shrink:0;}
+    .zstat{background:var(--surface2);border-radius:8px;padding:7px 8px;text-align:center;}
+    .zstat .n{font-size:17px;font-weight:700;line-height:1;}
+    .zstat .l{font-size:10px;color:var(--muted);margin-top:2px;}
+    .zstat.danger .n{color:var(--danger);}
+    .zstat.warn .n{color:var(--warn);}
+    .zstat.info .n{color:var(--info);}
+
+    /* tabs */
+    .tab-bar{display:flex;padding:0 12px;border-bottom:1px solid var(--border);flex-shrink:0;}
+    .tab-btn{flex:1;padding:9px 0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;background:transparent;border:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:color .12s,border-color .12s;display:flex;align-items:center;justify-content:center;gap:5px;}
+    .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+    .tab-badge{background:var(--surface3);color:var(--text);font-size:9px;font-weight:700;padding:1px 5px;border-radius:99px;}
+
+    .tab-content{display:none;}
+    .tab-content.active{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;}
+    .list-scroll{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px;min-height:0;}
+    .list-scroll::-webkit-scrollbar{width:4px;}
+    .list-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px;}
+
+    /* inline filter pill row */
+    .quick-filter{display:flex;gap:4px;padding:8px 12px 0;flex-wrap:wrap;flex-shrink:0;}
+    .qf-pill{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:4px 9px;border-radius:99px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .12s;}
+    .qf-pill:hover{color:var(--text);background:var(--surface3);}
+    .qf-pill.on{background:rgba(59,130,246,.15);border-color:var(--accent);color:var(--accent);}
+    .qf-pill.hide{border-style:dashed;}
+    .qf-pill.hide.on{border-style:solid;background:rgba(122,138,168,.15);color:var(--text);border-color:var(--border2);}
+
+    /* route card */
+    .route-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--rl);padding:9px 10px;cursor:pointer;transition:border-color .12s,background .12s;position:relative;}
+    .route-card:hover{background:var(--surface3);}
+    .route-card.sel{border-color:var(--accent);background:rgba(59,130,246,.08);}
+    .route-card.sel-d{border-color:var(--danger);background:rgba(239,68,68,.07);}
+    .route-card.sel-w{border-color:var(--warn);background:rgba(245,158,11,.07);}
+    .route-card.has-followup{box-shadow:inset 0 0 0 1px rgba(56,189,248,.18);}
+    .rc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:5px;}
+    .rc-name{font-weight:600;font-size:12px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .rc-meta{font-size:10px;color:var(--muted);line-height:1.5;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .rc-pills{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px;align-items:center;}
+
+    /* zone card (for all-zones view) */
+    .zone-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--rl);padding:10px 11px;cursor:pointer;transition:background .12s;}
+    .zone-card:hover{background:var(--surface3);}
+    .zone-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+    .zone-card-name{font-weight:700;font-size:13px;letter-spacing:.01em;}
+    .zone-card-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:11px;}
+    .zone-card-stat{background:var(--surface3);border-radius:6px;padding:4px 6px;text-align:center;}
+    .zone-card-stat .n{font-weight:700;font-size:13px;}
+    .zone-card-stat .l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+    .zone-card-stat.high .n{color:var(--danger);}
+    .zone-card-stat.med .n{color:var(--warn);}
+
+    /* issue card */
+    .issue-card{background:var(--surface2);border:1px solid var(--border);border-left-width:3px;border-radius:var(--r);padding:9px 10px;cursor:pointer;transition:background .12s;}
+    .issue-card:hover{background:var(--surface3);}
+    .issue-card.sel-ic{background:var(--surface3);}
+    .issue-card.sev-high{border-left-color:var(--danger);}
+    .issue-card.sev-medium{border-left-color:var(--warn);}
+    .issue-card.sev-low{border-left-color:var(--info);}
+    .ic-type{font-weight:600;font-size:12px;margin-bottom:2px;}
+    .ic-msg{font-size:11px;color:var(--muted);line-height:1.4;}
+    .ic-loc{font-size:11px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:4px;}
+
+    /* pill */
+    .pill{display:inline-flex;align-items:center;gap:3px;border-radius:999px;padding:2px 6px;font-size:10px;font-weight:600;letter-spacing:.02em;white-space:nowrap;}
+    .pill.high{background:rgba(239,68,68,.14);color:#fca5a5;}
+    .pill.medium{background:rgba(245,158,11,.14);color:#fcd34d;}
+    .pill.low{background:rgba(56,189,248,.13);color:#7dd3fc;}
+    .pill.normal{background:rgba(16,185,129,.12);color:#6ee7b7;}
+    .pill.neutral{background:var(--surface3);color:var(--muted);}
+    .fu-route-pill{border:1px solid rgba(255,255,255,.14);font-weight:800;}
+
+    /* risk badge */
+    .rbadge{display:inline-flex;align-items:center;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;white-space:nowrap;}
+    .rbadge.Critical{background:rgba(239,68,68,.18);color:#f87171;border:1px solid rgba(239,68,68,.3);}
+    .rbadge.NeedsReview{background:rgba(245,158,11,.16);color:#fbbf24;border:1px solid rgba(245,158,11,.3);}
+    .rbadge.Watch{background:rgba(56,189,248,.12);color:#38bdf8;border:1px solid rgba(56,189,248,.25);}
+    .rbadge.Normal{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.25);}
+
+    /* MAP PANEL */
+    .map-panel{position:relative;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+    #map{flex:1;min-height:0;width:100%;background:#1a2035;}
+    .leaflet-container{background:#1a2035;}
+    .leaflet-control-attribution{background:rgba(13,17,23,.85)!important;color:var(--muted)!important;font-size:10px!important;}
+    .leaflet-control-attribution a{color:var(--muted)!important;}
+    .leaflet-control-zoom a{background:var(--surface2)!important;color:var(--text)!important;border-color:var(--border2)!important;}
+    .leaflet-control-zoom a:hover{background:var(--surface3)!important;}
+    .osm-soft-tile{filter:grayscale(1) saturate(.45) brightness(.85) contrast(.92) invert(1);}
+    .osm-dark-tile{filter:invert(1) hue-rotate(200deg) saturate(.65) brightness(.75);}
+    .leaflet-fade-anim .leaflet-tile{transition:none!important;}
+
+    /* leaflet popup theming */
+    .leaflet-popup-content-wrapper{background:var(--surface)!important;color:var(--text)!important;border:1px solid var(--border2)!important;border-radius:10px!important;box-shadow:0 8px 24px rgba(0,0,0,.5)!important;}
+    .leaflet-popup-tip{background:var(--surface)!important;border:1px solid var(--border2)!important;}
+    .leaflet-popup-content{margin:10px 12px!important;font-size:12px!important;line-height:1.5!important;}
+    .leaflet-popup-close-button{color:var(--muted)!important;}
+
+    /* leaflet tooltip theming */
+    .leaflet-tooltip{background:var(--surface)!important;border:1px solid var(--border2)!important;color:var(--text)!important;font-size:11px!important;padding:4px 8px!important;border-radius:6px!important;box-shadow:0 4px 12px rgba(0,0,0,.4)!important;}
+    .leaflet-tooltip-top:before{border-top-color:var(--border2)!important;}
+
+
+
+
+    .map-overlay{position:absolute;top:12px;left:12px;right:52px;z-index:500;display:flex;gap:6px;flex-wrap:wrap;pointer-events:none;}
+    .map-pill{background:rgba(13,17,23,.88);border:1px solid var(--border2);border-radius:999px;padding:5px 10px;font-size:11px;font-weight:500;color:var(--text);pointer-events:auto;}
+    .map-pill.warn{color:var(--warn);border-color:rgba(245,158,11,.4);}
+    .map-pill.danger{color:var(--danger);border-color:rgba(239,68,68,.4);}
+    .map-pill.action{cursor:pointer;}
+    .map-pill.action:hover{background:var(--surface3);}
+
+    .map-legend{position:absolute;bottom:16px;left:12px;z-index:500;background:rgba(13,17,23,.92);border:1px solid var(--border2);border-radius:12px;padding:8px 10px;display:flex;align-items:center;gap:0;box-shadow:0 4px 16px rgba(0,0,0,.45);backdrop-filter:blur(4px);}
+    .legend-group{display:flex;flex-direction:column;gap:4px;}
+    .legend-group-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:2px;padding:0 2px;}
+    .legend-items{display:flex;gap:4px;flex-wrap:nowrap;}
+    .legend-divider{width:1px;background:var(--border);margin:0 8px;align-self:stretch;}
+
+    .leg-item{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:8px;font-size:11px;font-weight:500;color:rgba(255,255,255,.35);cursor:pointer;user-select:none;transition:all .15s;border:1px solid transparent;background:transparent;}
+    .leg-item svg{flex-shrink:0;opacity:.4;transition:opacity .15s;}
+    .leg-item:hover{color:rgba(255,255,255,.7);background:rgba(255,255,255,.06);}
+    .leg-item:hover svg{opacity:.7;}
+
+    /* ON state — each group has its own accent color */
+    .leg-item.on{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:var(--text);}
+    .leg-item.on svg{opacity:1;}
+    .leg-item.cluster.on{color:#fbbf24;}
+    .leg-item.cluster.on svg{color:#fbbf24;}
+    .leg-item.att.on{color:var(--ok);}
+    .leg-item.att.on svg{color:var(--ok);}
+    .leg-item.issues.on{color:var(--warn);}
+    .leg-item.issues.on svg{color:var(--warn);}
+    .leg-item.gps.on{color:var(--info);}
+    .leg-item.gps.on svg{color:var(--info);}
+    .leg-item.gpspts.on{color:#a78bfa;}
+    .leg-item.gpspts.on svg{color:#a78bfa;}
+    .leg-item.leg-filter{color:var(--muted);}
+    .leg-item.leg-filter.active{color:var(--accent);border-color:rgba(59,130,246,.3);background:rgba(59,130,246,.1);}
+    .leg-item.leg-filter.active svg{opacity:1;color:var(--accent);}
+
+    /* GPS filter popup anchored above legend */
+    .gps-filter-pop{position:absolute;bottom:88px;left:12px;background:rgba(13,17,23,.95);border:1px solid var(--border2);border-radius:var(--rl);padding:10px;z-index:900;display:none;min-width:240px;max-width:300px;box-shadow:0 8px 24px rgba(0,0,0,.5);backdrop-filter:blur(4px);}
+    .gps-filter-pop.show{display:block;}
+    .gps-filter-pop h4{font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700;letter-spacing:.06em;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+    .gps-filter-pop h4 .pop-actions{display:flex;gap:8px;}
+    .gps-filter-pop h4 .pop-actions span{cursor:pointer;color:var(--accent);font-weight:600;letter-spacing:0;text-transform:none;}
+
+    .gps-plate-list{display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;}
+    .gps-plate-list::-webkit-scrollbar{width:4px;}
+    .gps-plate-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px;}
+    .gps-plate-row{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:11px;transition:background .12s;}
+    .gps-plate-row:hover{background:var(--surface3);}
+    .gps-plate-row .swatch{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+    .gps-plate-row .plate{font-family:'DM Mono',monospace;font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;}
+    .gps-plate-row .count{font-size:10px;color:var(--muted);}
+    .gps-plate-row input{margin:0;}
+    .gps-plate-row.off{opacity:.4;}
+
+    /* marker */
+    .marker-dot{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:800;border:2.5px solid rgba(255,255,255,.65);background:var(--accent);color:white;box-shadow:0 2px 10px rgba(0,0,0,.6);cursor:pointer;transition:transform .1s;}
+    .marker-dot:hover{transform:scale(1.15);}
+    .marker-dot.mdanger{background:var(--danger);}
+    .marker-dot.mwarn{background:var(--warn);color:#1a0a00;}
+    .marker-dot.mbranch{background:var(--accent2);}
+    .marker-dot.matt-in{background:var(--ok);color:#001a0a;}
+    .marker-dot.matt-out{background:#f97316;color:#1a0500;}
+    /* GPS points: larger hit area, invisible but clickable overlay */
+    .marker-dot.mgps{width:16px;height:16px;background:var(--info);border-width:2px;border-color:rgba(255,255,255,.5);font-size:0;opacity:.85;box-shadow:0 0 6px rgba(56,189,248,.6);}
+    .marker-dot.mgps-end{background:#f97316;box-shadow:0 0 6px rgba(249,115,22,.6);}
+    /* Cluster override */
+    .marker-cluster{border-radius:50%!important;}
+    .marker-cluster div{border-radius:50%!important;font-family:'DM Sans',sans-serif!important;font-size:13px!important;font-weight:800!important;display:flex!important;align-items:center!important;justify-content:center!important;box-shadow:0 2px 10px rgba(0,0,0,.5)!important;}
+    .marker-cluster-small{background:rgba(59,130,246,.3)!important;width:36px!important;height:36px!important;}
+    .marker-cluster-small div{background:rgba(59,130,246,.9)!important;width:28px!important;height:28px!important;color:#fff!important;border:2px solid rgba(255,255,255,.5)!important;}
+    .marker-cluster-medium{background:rgba(245,158,11,.3)!important;width:44px!important;height:44px!important;}
+    .marker-cluster-medium div{background:rgba(245,158,11,.95)!important;width:34px!important;height:34px!important;color:#1a0a00!important;border:2px solid rgba(255,255,255,.5)!important;}
+    .marker-cluster-large{background:rgba(239,68,68,.3)!important;width:52px!important;height:52px!important;}
+    .marker-cluster-large div{background:rgba(239,68,68,.95)!important;width:42px!important;height:42px!important;color:#fff!important;border:2px solid rgba(255,255,255,.5)!important;}
+    .marker-cluster.cluster-danger{background:rgba(239,68,68,.3)!important;}
+    .marker-cluster.cluster-danger div{background:rgba(239,68,68,.95)!important;color:#fff!important;}
+    .marker-cluster.cluster-warn{background:rgba(245,158,11,.3)!important;}
+    .marker-cluster.cluster-warn div{background:rgba(245,158,11,.95)!important;color:#1a0a00!important;}
+
+    /* RIGHT PANEL */
+    .right-panel{display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--surface);min-height:0;overflow:hidden;}
+    .right-header{padding:12px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
+    .right-header-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+    .route-title{font-size:14px;font-weight:700;line-height:1.3;}
+    .route-sub{font-size:11px;color:var(--muted);line-height:1.5;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+    .route-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:10px 12px;border-bottom:1px solid var(--border);}
+    .kpi{background:var(--surface2);border-radius:8px;padding:7px 8px;text-align:center;}
+    .kpi .n{font-size:16px;font-weight:700;}
+    .kpi .l{font-size:10px;color:var(--muted);margin-top:1px;}
+    .kpi.kdanger .n{color:var(--danger);}
+    .kpi.kwarn .n{color:var(--warn);}
+    .kpi.kok .n{color:var(--ok);}
+
+    .sec-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);padding:10px 12px 4px;flex-shrink:0;display:flex;justify-content:space-between;align-items:center;}
+    .sec-label .sec-meta{font-weight:500;color:var(--muted);text-transform:none;letter-spacing:0;}
+
+    /* findings bucketed */
+    .findings-section{padding:0 0 8px;}
+    .fi-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:8px 0 6px;display:flex;justify-content:space-between;align-items:center;}
+    .fi-label .count{background:var(--surface3);color:var(--text);padding:1px 6px;border-radius:99px;font-size:9px;}
+
+    .fi-bucket{margin-bottom:8px;}
+    .fi-bucket-header{display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 0;user-select:none;}
+    .fi-bucket-header svg{transition:transform .12s;flex-shrink:0;}
+    .fi-bucket.collapsed .fi-bucket-header svg{transform:rotate(-90deg);}
+    .fi-bucket-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);}
+    .fi-bucket.action .fi-bucket-title{color:var(--warn);}
+    .fi-bucket-count{margin-left:auto;font-size:10px;background:var(--surface3);padding:1px 6px;border-radius:99px;color:var(--text);}
+    .fi-bucket-body{margin-top:4px;}
+    .fi-bucket.collapsed .fi-bucket-body{display:none;}
+
+    .fi-item{border-left:3px solid var(--border);background:var(--surface2);border-radius:8px;padding:8px 10px;margin-bottom:5px;}
+    .fi-item.high{border-left-color:var(--danger);}
+    .fi-item.medium{border-left-color:var(--warn);}
+    .fi-item.low{border-left-color:var(--info);}
+    .fi-type{font-size:11px;font-weight:700;margin-bottom:2px;display:flex;align-items:center;gap:6px;}
+    .fi-msg{font-size:11px;color:var(--muted);line-height:1.4;}
+    .fi-rec{font-size:10px;color:var(--muted);margin-top:3px;font-style:italic;opacity:.7;}
+    .fi-context{margin-top:6px;padding:6px 8px;background:rgba(56,189,248,.07);border:1px solid rgba(56,189,248,.18);border-radius:6px;font-size:10px;color:#7dd3fc;line-height:1.5;}
+    .fi-context strong{color:#bae6fd;}
+
+    .fi-followup{margin-top:8px;display:flex;flex-direction:column;gap:6px;}
+    .fi-followup-view{gap:8px;}
+    .fi-followup-summary{display:flex;flex-direction:column;gap:6px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:8px 9px;}
+    .fi-followup-summary-status{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+    .fi-followup-summary-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+    .fi-followup-summary-note{font-size:11px;line-height:1.45;color:var(--text);white-space:pre-wrap;}
+    .fi-followup-summary-empty{font-size:11px;color:var(--muted);font-style:italic;}
+    .fi-edit-btn{border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:6px;padding:4px 8px;font-size:10px;font-weight:700;cursor:pointer;line-height:1;}
+    .fi-edit-btn:hover{background:var(--surface3);border-color:var(--border2);}
+    .fi-followup-hint{font-size:9px;color:var(--muted);letter-spacing:.02em;}
+    .fi-followup-status{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:6px;}
+    .fi-followup-status.open{border-color:rgba(59,130,246,.38);box-shadow:0 0 0 2px rgba(59,130,246,.12);}
+    .fi-status-chips{display:flex;flex-wrap:wrap;gap:5px;min-width:0;}
+    .fi-status-chip{border:1px solid var(--border);background:var(--surface3);color:var(--muted);border-radius:6px;padding:5px 8px;font-size:10px;font-weight:800;line-height:1;cursor:pointer;transition:background .12s,border-color .12s,color .12s;}
+    .fi-status-chip:hover,.fi-status-chip:focus-visible{background:var(--surface2);border-color:var(--border2);color:var(--text);outline:none;}
+    .fi-status-chip.active{color:var(--text);border-color:var(--accent);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);}
+    .fi-status-chip.clarified.active{background:rgba(16,185,129,.14);border-color:rgba(16,185,129,.45);color:#6ee7b7;}
+    .fi-status-chip.escalated.active{background:rgba(245,158,11,.16);border-color:rgba(245,158,11,.5);color:#fcd34d;}
+    .fi-status-chip.invalid.active{background:rgba(122,138,168,.16);border-color:rgba(122,138,168,.42);color:#cbd5e1;}
+    .fi-save-badge{font-size:9px;color:var(--ok);opacity:0;transition:opacity .3s;white-space:nowrap;flex-shrink:0;}
+    .fi-save-badge.show{opacity:1;}
+    .fi-followup-note{position:relative;}
+    .fi-followup-note textarea{width:100%;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:11px;color:var(--text);outline:none;resize:none;min-height:34px;max-height:120px;overflow-y:hidden;font-family:inherit;line-height:1.4;transition:border-color .12s,min-height .15s;}
+    .fi-followup-note textarea:focus{border-color:var(--accent);background:var(--surface2);}
+    .fi-followup-note textarea::placeholder{color:var(--muted);}
+    .fi-char-count{font-size:9px;color:var(--muted);text-align:right;margin-top:2px;}
+
+    /* benchmark bar */
+    .bench-bar{margin-top:4px;display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);}
+    .bench-bar-track{flex:1;height:5px;background:var(--surface);border-radius:3px;position:relative;overflow:hidden;}
+    .bench-bar-range{position:absolute;top:0;bottom:0;background:rgba(16,185,129,.25);border-left:1px solid rgba(16,185,129,.5);border-right:1px solid rgba(16,185,129,.5);}
+    .bench-bar-actual{position:absolute;top:-1px;bottom:-1px;width:2px;background:var(--accent);border-radius:1px;box-shadow:0 0 4px rgba(59,130,246,.6);min-left:1.5px;}
+    .bench-bar-actual.below{background:var(--info);box-shadow:0 0 4px rgba(56,189,248,.6);}
+    .bench-bar-actual.above{background:var(--warn);box-shadow:0 0 4px rgba(245,158,11,.6);}
+    .bench-bar-actual.way-above{background:var(--danger);box-shadow:0 0 4px rgba(239,68,68,.6);}
+    .bench-bar-num{font-family:'DM Mono',monospace;font-size:10px;min-width:40px;}
+
+    /* timeline */
+    .tl-scroll{flex:1;overflow-y:auto;padding:10px 12px;min-height:0;}
+    .tl-scroll::-webkit-scrollbar{width:4px;}
+    .tl-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px;}
+    .tl-item{display:flex;gap:10px;padding-bottom:14px;position:relative;}
+    .tl-item:not(:last-child)::after{content:'';position:absolute;left:13px;top:30px;width:1px;bottom:0;background:var(--border);}
+    .tl-dot{width:27px;height:27px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:10px;font-weight:800;background:var(--surface3);border:1px solid var(--border2);color:var(--muted);z-index:1;}
+    .tl-dot.dstore{background:rgba(59,130,246,.15);border-color:rgba(59,130,246,.4);color:var(--accent);}
+    .tl-dot.dhigh{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.4);color:var(--danger);}
+    .tl-dot.dwarn{background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.4);color:var(--warn);}
+    .tl-dot.datt{background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.4);color:var(--ok);}
+    .tl-dot.dtravel{background:rgba(167,139,250,.15);border-color:rgba(167,139,250,.4);color:#a78bfa;}
+    .tl-body{flex:1;min-width:0;}
+    .tl-time{font-size:10px;color:var(--muted);margin-bottom:2px;font-family:'DM Mono',monospace;}
+    .tl-name{font-size:12.5px;font-weight:600;line-height:1.3;}
+    .tl-meta{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4;}
+    .tl-jobs{margin-top:6px;display:flex;flex-direction:column;gap:4px;}
+    .tl-job{background:var(--surface3);border-radius:6px;padding:6px 8px;font-size:11px;color:var(--muted);line-height:1.4;}
+    .tl-job strong{color:var(--text);}
+    .tl-job-notes{margin-top:4px;padding-top:4px;border-top:1px dashed var(--border);font-size:10px;color:var(--muted);font-style:italic;}
+    .tl-job-notes.problem{color:#fcd34d;font-style:normal;}
+    .tl-flag{margin-top:5px;border-radius:6px;padding:5px 8px;font-size:11px;line-height:1.4;}
+    .tl-flag.high{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#fca5a5;}
+    .tl-flag.medium{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:#fcd34d;}
+    .tl-flag.low{background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.2);color:#7dd3fc;}
+
+    /* travel gap badge */
+    .tl-gap{display:flex;align-items:center;gap:6px;margin:4px 0 10px 36px;padding:4px 10px;font-size:10px;color:var(--muted);background:var(--surface2);border-radius:99px;width:fit-content;font-family:'DM Mono',monospace;}
+    .tl-gap.long{color:var(--warn);background:rgba(245,158,11,.08);}
+    .tl-gap.critical{color:var(--danger);background:rgba(239,68,68,.08);}
+
+    .empty-state{text-align:center;padding:24px 16px;color:var(--muted);font-size:12px;line-height:1.6;}
+
+    .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--surface);border:1px solid var(--border2);border-radius:999px;padding:9px 16px;z-index:9999;color:var(--text);font-size:12px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+    ::-webkit-scrollbar{width:4px;height:4px;}
+    ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px;}
+
+    @media(max-width:1100px){.shell{grid-template-columns:280px 1fr 310px;}}
+    @media(max-width:860px){body{overflow:auto;height:auto;}.app{height:auto;min-height:100vh;}.shell{grid-template-columns:1fr;grid-template-rows:auto 480px auto;height:auto;}.right-panel{border-left:none;border-top:1px solid var(--border);}}
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo-mark">A</div>
+      <div>
+        <h1>Technician Audit Cockpit</h1>
+      </div>
+      <div class="build-info" id="buildInfo">Memuat...</div>
+    </div>
+    <div class="topbar-right">
+      <div class="dropdown" id="exportDropdown">
+        <button class="btn" id="exportBtn">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export
+          <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="dropdown-menu">
+          <div class="dropdown-item" id="expFieldBtn">
+            <div class="dropdown-item-content">
+              <div>Laporan Lapangan</div>
+              <div class="desc">Late + duration issues + catatan teknisi → supervisor</div>
+            </div>
+          </div>
+          <div class="dropdown-item" id="expDataBtn">
+            <div class="dropdown-item-content">
+              <div>Laporan Data Quality</div>
+              <div class="desc">Missing coord/distance → admin data</div>
+            </div>
+          </div>
+          <div class="dropdown-item" id="expExecBtn">
+            <div class="dropdown-item-content">
+              <div>Summary Eksekutif</div>
+              <div class="desc">Aggregate per zona → manajemen</div>
+            </div>
+          </div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-item" id="expSummaryBtn">
+            <div class="dropdown-item-content">
+              <div>Raw Summary CSV</div>
+              <div class="desc">Semua route, semua kolom</div>
+            </div>
+          </div>
+          <div class="dropdown-item" id="expIssueBtn">
+            <div class="dropdown-item-content">
+              <div>Raw Issue CSV</div>
+              <div class="desc">Semua issue dengan metrics</div>
+            </div>
+          </div>
+          <div class="dropdown-item" id="expRouteBtn">
+            <div class="dropdown-item-content">
+              <div>Route Detail CSV</div>
+              <div class="desc">Route yang sedang dipilih</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button class="btn primary" id="printReportBtn">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print Report
+      </button>
+      <div id="syncStatus" title="Status sinkronisasi notes tim" style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);padding:0 4px;cursor:default;">
+        <div id="syncDot" style="width:7px;height:7px;border-radius:50%;background:var(--muted);transition:background .3s;flex-shrink:0;"></div>
+        <span id="syncLabel">Offline</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+
+    <!-- LEFT -->
+    <aside class="left-panel">
+      <div class="left-top">
+        <div class="filter-row">
+          <div class="field"><span class="field-label">Tanggal</span><select id="dateSelect"></select></div>
+          <div class="field"><span class="field-label">Zona</span><select id="zoneSelect"></select></div>
+        </div>
+        <div class="field">
+          <div class="search-wrap">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input id="searchInput" placeholder="Cari team, toko, issue...">
+          </div>
+        </div>
+        <div class="filter-row" style="align-items:flex-end">
+          <div class="field"><span class="field-label">Severity</span>
+            <select id="severitySelect">
+              <option value="all">Semua severity</option>
+              <option value="high">High only</option>
+              <option value="medium">Medium+</option>
+              <option value="low">Low+</option>
+            </select>
+          </div>
+          <div class="field"><span class="field-label">Map Style</span>
+            <select id="mapStyleSelect">
+              <option value="osm_dark">OSM Dark</option>
+              <option value="osm_soft">OSM Soft</option>
+              <option value="carto_dark" selected>CARTO Dark</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="zone-stats" id="zoneStats">
+        <div class="zstat"><div class="n">—</div><div class="l">Routes</div></div>
+        <div class="zstat danger"><div class="n">—</div><div class="l">High</div></div>
+        <div class="zstat warn"><div class="n">—</div><div class="l">Medium</div></div>
+        <div class="zstat info"><div class="n">—</div><div class="l">GPS Pts</div></div>
+      </div>
+
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="routes" id="tabRoutes">Routes</button>
+        <button class="tab-btn" data-tab="issues" id="tabIssues">Issues</button>
+        <button class="tab-btn" data-tab="zones" id="tabZones">All Zones</button>
+      </div>
+
+      <!-- ROUTES TAB -->
+      <div class="tab-content active" id="tabContentRoutes">
+        <div class="quick-filter" id="routeQuickFilter">
+          <span class="qf-pill hide on" data-filter="hide-noise" id="qfHideNoise" title="Sembunyikan data issue (koordinat, jarak)">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+            Data issue
+          </span>
+          <span class="qf-pill" data-filter="only-action" id="qfOnlyAction" title="Hanya route yang perlu klarifikasi">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Klarifikasi
+          </span>
+          <span class="qf-pill" data-filter="hide-resolved" id="qfHideResolved" title="Sembunyikan yang sudah selesai">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Selesai
+          </span>
+        </div>
+        <div class="list-scroll" id="routeList"><div class="empty-state">Memuat...</div></div>
+      </div>
+
+      <!-- ISSUES TAB -->
+      <div class="tab-content" id="tabContentIssues">
+        <div class="quick-filter">
+          <span class="qf-pill hide" data-filter="hide-noise-issue" id="qfHideNoiseIssue">Hide data issues</span>
+        </div>
+        <div class="list-scroll" id="issueList"><div class="empty-state">Memuat...</div></div>
+      </div>
+
+      <!-- ZONES TAB -->
+      <div class="tab-content" id="tabContentZones">
+        <div class="list-scroll" id="zoneList"><div class="empty-state">Memuat...</div></div>
+      </div>
+    </aside>
+
+    <!-- MAP -->
+    <section class="map-panel">
+      <div id="map"></div>
+      <div class="map-overlay" id="mapOverlay">
+        <span class="map-pill">Pilih route untuk lihat evidence map.</span>
+      </div>
+      <div class="gps-filter-pop" id="gpsFilterPop">
+        <h4>
+          GPS Vehicles
+          <span class="pop-actions">
+            <span id="gpsSelectAll">All</span>
+            <span id="gpsSelectNone">None</span>
+          </span>
+        </h4>
+        <!-- Time filter -->
+        <div style="margin-bottom:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin-bottom:5px;">Filter Waktu</div>
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:11px;color:var(--text);padding:3px 0;">
+            <input type="radio" name="gpsTimeFilter" value="all" checked id="gpsTimeAll" style="margin:0;accent-color:var(--accent)">
+            Semua waktu
+          </label>
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:11px;color:var(--text);padding:3px 0;" id="gpsTimeAfterLabel">
+            <input type="radio" name="gpsTimeFilter" value="after_route" id="gpsTimeAfter" style="margin:0;accent-color:var(--accent)">
+            <span>Setelah route selesai <span id="gpsTimeAfterVal" style="color:var(--muted);font-family:'DM Mono',monospace"></span></span>
+          </label>
+        </div>
+        <div id="gpsSearchWrap" style="display:none;margin-bottom:6px;">
+          <input id="gpsSearchInput" placeholder="Cari plat..." style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:11px;color:var(--text);outline:none;">
+        </div>
+        <div class="gps-plate-list" id="gpsPlateList"></div>
+      </div>
+
+      <div class="map-legend" id="mapLegend">
+        <!-- Route layers group -->
+        <div class="legend-group">
+          <div class="legend-group-label">Rute</div>
+          <div class="legend-items">
+            <div class="leg-item cluster on" data-layer="cluster">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9"/><text x="12" y="16" text-anchor="middle" fill="white" font-size="11" font-weight="800">n</text></svg>
+              Cluster
+            </div>
+            <div class="leg-item att on" data-layer="att">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+              Absensi
+            </div>
+            <div class="leg-item on" data-layer="branch">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 9h3M15 15h3"/></svg>
+              Branch
+            </div>
+            <div class="leg-item issues on" data-layer="issues">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              Issues
+            </div>
+            <div class="leg-item" data-layer="distance">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12h18M3 12l4-4M3 12l4 4M21 12l-4-4M21 12l-4 4"/></svg>
+              Jarak
+            </div>
+          </div>
+        </div>
+        <!-- GPS group -->
+        <div class="legend-divider"></div>
+        <div class="legend-group">
+          <div class="legend-group-label">GPS</div>
+          <div class="legend-items">
+            <div class="leg-item gps on" data-layer="gps">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              Track
+            </div>
+            <div class="leg-item gpspts on" data-layer="gpsPoints">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4"/></svg>
+              Points
+            </div>
+            <div class="leg-item leg-filter" data-layer="gpsFilter" id="gpsFilterTog">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              <span id="gpsFilterLabel">Filter Plat</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT -->
+    <aside class="right-panel">
+      <div class="right-header" id="rightHeader">
+        <div class="right-header-top">
+          <div>
+            <div class="route-title" id="evidenceTitle">Route Evidence</div>
+            <div class="route-sub" id="evidenceSub">Pilih route atau issue untuk lihat detail.</div>
+          </div>
+          <div id="headerBadge"></div>
+        </div>
+      </div>
+
+      <div id="kpiSection" style="display:none">
+        <div class="route-kpis" id="routeKpis"></div>
+      </div>
+
+      <div class="tl-scroll" id="rightScroll" style="padding:0 12px 16px;">
+        <div id="findingsSection" style="display:none" class="findings-section">
+          <div id="findingsList"></div>
+        </div>
+
+        <div class="sec-label" style="padding:10px 0 4px;margin:0 -12px;padding-left:12px;padding-right:12px;position:sticky;top:0;background:var(--surface);z-index:10;border-bottom:1px solid var(--border);">
+          <span>Timeline</span>
+          <span class="sec-meta" id="timelineMeta"></span>
+        </div>
+        <div id="timeline" style="padding-top:10px;">
+          <div class="empty-state">Belum ada route dipilih.</div>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ── STATE ── */
+const S={
+  manifest:null,dateIndex:null,zoneData:null,gpsData:null,
+  dataCache:{},gpsCache:{},
+  selectedRouteId:null,selectedIssueId:null,
+  map:null,baseLayer:null,layers:{},renderers:{},
+  clusterGroup:null,
+  layerToggles:{cluster:true,gps:true,gpsPoints:true,att:true,branch:true,issues:true,distance:false},
+  gpsPlateDisabled:new Set(),
+  gpsPlateColors:{},
+  gpsTimeFilter:'all',  // 'all' | 'after_route'
+  qfHideNoise:true,qfOnlyAction:false,qfHideResolved:false,qfHideNoiseIssue:false,
+  followupUi:{edit:{},statusOpen:{}},
+  gpsRenderToken:0,
+  followups:{},
+  allZonesData:null,
+};
+const SEV={high:3,medium:2,low:1};
+const NOISE_TYPES=new Set(['missing_distance','missing_coordinate','attendance_in_missing','attendance_out_missing']);
+const ACTION_TYPES=new Set(['late_first_store','work_duration_too_short','work_duration_too_long','travel_gap_too_long']);
+</script>
+<script src="js/app-bootstrap.js"></script>
+</body>
+</html>

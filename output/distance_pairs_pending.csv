@@ -1,0 +1,3 @@
+pairId,date,zone,routeId,purpose,fromType,fromLabel,fromLat,fromLng,toType,toLabel,toLat,toLng
+822e0423cc57f933,2026-05-11,PONTIANAK,63ea104cbcfc056b,route_sequence,attendance_in,Absen masuk Dito Ardiansyah,-0.0428938,-0.0428938,attendance_out,Absen pulang Irfan,0.0597624,111.4914464
+f217b7bc33339c5b,2026-05-11,YOGYAKARTA,41f8f5dd4b2aded3,route_sequence,attendance_in,Absen masuk Ridho Agustian,-7.7786235,-7.7786235,store_task,PIERE TENDEAN ( TX37 ),-7.8043999,110.3509855

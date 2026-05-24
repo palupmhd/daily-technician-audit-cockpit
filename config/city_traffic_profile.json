@@ -1,0 +1,74 @@
+{
+  "DEFAULT": {
+    "avgSpeedKmH": 22,
+    "bufferMin": 8
+  },
+  "JAKARTA": {
+    "avgSpeedKmH": 15,
+    "bufferMin": 12
+  },
+  "BEKASI": {
+    "avgSpeedKmH": 17,
+    "bufferMin": 10
+  },
+  "SURABAYA": {
+    "avgSpeedKmH": 20,
+    "bufferMin": 8
+  },
+  "MEDAN": {
+    "avgSpeedKmH": 20,
+    "bufferMin": 8
+  },
+  "BALI": {
+    "avgSpeedKmH": 20,
+    "bufferMin": 8
+  },
+  "SORONG": {
+    "avgSpeedKmH": 30,
+    "bufferMin": 10
+  },
+  "MANADO": {
+    "avgSpeedKmH": 24,
+    "bufferMin": 6
+  },
+  "GORONTALO": {
+    "avgSpeedKmH": 24,
+    "bufferMin": 6
+  },
+  "BENGKULU": {
+    "avgSpeedKmH": 24,
+    "bufferMin": 6
+  },
+  "PONTIANAK": {
+    "avgSpeedKmH": 23,
+    "bufferMin": 6
+  },
+  "SINGKAWANG": {
+    "avgSpeedKmH": 25,
+    "bufferMin": 6
+  },
+  "PURWOKERTO": {
+    "avgSpeedKmH": 24,
+    "bufferMin": 6
+  },
+  "YOGYAKARTA": {
+    "avgSpeedKmH": 20,
+    "bufferMin": 8
+  },
+  "JEMBER": {
+    "avgSpeedKmH": 24,
+    "bufferMin": 6
+  },
+  "BATAM": {
+    "avgSpeedKmH": 23,
+    "bufferMin": 6
+  },
+  "NON_SEWA": {
+    "avgSpeedKmH": 15,
+    "bufferMin": 12
+  },
+  "PENGEMBANGAN": {
+    "avgSpeedKmH": 15,
+    "bufferMin": 12
+  }
+}

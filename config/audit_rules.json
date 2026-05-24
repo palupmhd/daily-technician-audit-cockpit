@@ -1,0 +1,41 @@
+{
+  "workStart": "08:00",
+  "briefingMin": 15,
+  "firstStoreGraceMin": 15,
+  "lateHighMin": 60,
+  "lateMediumMin": 30,
+  "lunchWindowStart": "11:00",
+  "lunchWindowEnd": "13:30",
+  "maxLunchDeductionMin": 60,
+  "riskWeights": {
+    "high": 5,
+    "medium": 3,
+    "low": 1
+  },
+  "riskBands": [
+    {
+      "max": 2,
+      "label": "Normal"
+    },
+    {
+      "max": 6,
+      "label": "Watch"
+    },
+    {
+      "max": 12,
+      "label": "Needs Review"
+    },
+    {
+      "max": 9999,
+      "label": "Critical"
+    }
+  ],
+  "lateCriticalMin": 120,
+  "severityOverride": true,
+  "noiseIssueTypes": [
+    "missing_distance",
+    "missing_coordinate",
+    "attendance_in_missing",
+    "attendance_out_missing"
+  ]
+}

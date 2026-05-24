@@ -1,0 +1,90 @@
+{
+  "stats": {
+    "task_rows": 446,
+    "sn_task_rows": 221,
+    "jobs": 221,
+    "visits": 213,
+    "routes": 71,
+    "issues": 71,
+    "gps_points": 1124,
+    "attendance_points": 390,
+    "pending_distance_pairs": 2
+  },
+  "manifest": {
+    "generatedAt": "2026-05-24T22:51:03",
+    "availableDates": [
+      "2026-05-11"
+    ],
+    "zones": [
+      "BALI",
+      "BATAM",
+      "BEKASI",
+      "BENGKULU",
+      "GORONTALO",
+      "JAKARTA_01",
+      "JAKARTA_03",
+      "JAKARTA_PROJECT",
+      "JEMBER",
+      "MANADO",
+      "MEDAN",
+      "NON_SEWA",
+      "PENGEMBANGAN",
+      "PENGEMBANGAN_01",
+      "PENGEMBANGAN_02",
+      "PENGEMBANGAN_03",
+      "PENGEMBANGAN_04",
+      "PONTIANAK",
+      "PURWOKERTO",
+      "SINGKAWANG",
+      "SORONG",
+      "SURABAYA",
+      "YOGYAKARTA"
+    ],
+    "files": {
+      "2026-05-11": {
+        "index": "data/2026/05/2026-05-11.index.json",
+        "zones": {
+          "MEDAN": "data/2026/05/2026-05-11.MEDAN.json",
+          "SURABAYA": "data/2026/05/2026-05-11.SURABAYA.json",
+          "BALI": "data/2026/05/2026-05-11.BALI.json",
+          "JEMBER": "data/2026/05/2026-05-11.JEMBER.json",
+          "PENGEMBANGAN_03": "data/2026/05/2026-05-11.PENGEMBANGAN_03.json",
+          "GORONTALO": "data/2026/05/2026-05-11.GORONTALO.json",
+          "BATAM": "data/2026/05/2026-05-11.BATAM.json",
+          "SINGKAWANG": "data/2026/05/2026-05-11.SINGKAWANG.json",
+          "PONTIANAK": "data/2026/05/2026-05-11.PONTIANAK.json",
+          "PURWOKERTO": "data/2026/05/2026-05-11.PURWOKERTO.json",
+          "MANADO": "data/2026/05/2026-05-11.MANADO.json",
+          "BENGKULU": "data/2026/05/2026-05-11.BENGKULU.json",
+          "YOGYAKARTA": "data/2026/05/2026-05-11.YOGYAKARTA.json",
+          "PENGEMBANGAN_04": "data/2026/05/2026-05-11.PENGEMBANGAN_04.json",
+          "BEKASI": "data/2026/05/2026-05-11.BEKASI.json",
+          "JAKARTA_03": "data/2026/05/2026-05-11.JAKARTA_03.json",
+          "PENGEMBANGAN_02": "data/2026/05/2026-05-11.PENGEMBANGAN_02.json",
+          "PENGEMBANGAN_01": "data/2026/05/2026-05-11.PENGEMBANGAN_01.json",
+          "NON_SEWA": "data/2026/05/2026-05-11.NON_SEWA.json",
+          "SORONG": "data/2026/05/2026-05-11.SORONG.json",
+          "PENGEMBANGAN": "data/2026/05/2026-05-11.PENGEMBANGAN.json",
+          "JAKARTA_PROJECT": "data/2026/05/2026-05-11.JAKARTA_PROJECT.json",
+          "JAKARTA_01": "data/2026/05/2026-05-11.JAKARTA_01.json"
+        }
+      }
+    },
+    "stats": {
+      "task_rows": 446,
+      "sn_task_rows": 221,
+      "jobs": 221,
+      "visits": 213,
+      "routes": 71,
+      "issues": 71,
+      "gps_points": 1124,
+      "attendance_points": 390,
+      "pending_distance_pairs": 2
+    },
+    "notes": "Load manifest first, then date index, then date+zone detail. GPS is zone-level vehicle evidence, not team assignment."
+  },
+  "performanceNotes": [
+    "GPS payload split into lazy-loaded .gps.json files.",
+    "GPS points are compacted for map rendering; rawPointCount remains in summaries."
+  ]
+}
