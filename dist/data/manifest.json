@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-25T03:01:53",
+  "generatedAt": "2026-05-25T03:20:34",
   "availableDates": [
     "2026-05-11"
   ],
@@ -64,7 +64,7 @@
     "jobs": 221,
     "visits": 213,
     "routes": 71,
-    "issues": 52,
+    "issues": 51,
     "gps_points": 1124,
     "attendance_points": 390,
     "pending_distance_pairs": 2

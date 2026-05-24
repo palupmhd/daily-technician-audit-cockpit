@@ -4,18 +4,19 @@
 async function loadDateIndex(date){
   const file=S.manifest.files[date]?.index;
   S.dateIndex=await fetchJson(file);
-  const zones=Object.keys(S.dateIndex.zones||{}).sort();
+  const zones=zonesForActivePic(Object.keys(S.dateIndex.zones||{}).sort());
   $('zoneSelect').innerHTML='<option value="all">— Semua Zona —</option>'+zones.map(z=>{
     const zd=S.dateIndex.zones[z];
     return`<option value="${esc(z)}">${esc(z)}${zd.highIssues?` ⚠${zd.highIssues}`:''}</option>`;
   }).join('');
+  if($('zoneSelect').value!=='all'&&!zones.includes($('zoneSelect').value))$('zoneSelect').value='all';
   S.allZonesData=null;  // invalidate cache on date change
 }
 
 async function loadAllZonesAggregated(){
   const date=$('dateSelect').value;
   if(!S.dateIndex)return;
-  const zones=Object.keys(S.dateIndex.zones||{});
+  const zones=zonesForActivePic(Object.keys(S.dateIndex.zones||{}));
   $('routeList').innerHTML='<div class="empty-state">Memuat semua zona...</div>';
   $('issueList').innerHTML='<div class="empty-state">Memuat...</div>';
   $('zoneStats').innerHTML=`
@@ -48,6 +49,8 @@ async function loadAllZonesAggregated(){
 }
 
 async function loadZoneData(){
+  const selectedZone=$('zoneSelect').value;
+  if(selectedZone!=='all'&&!zoneAllowedByAuditPic(selectedZone))$('zoneSelect').value='all';
   if($('zoneSelect').value==='all'){await loadAllZonesAggregated();return;}
   const date=$('dateSelect').value,zone=$('zoneSelect').value;
   const file=S.manifest.files[date]?.zones?.[zone];
@@ -105,7 +108,7 @@ async function loadZoneData(){
 async function warmCache(){
   const date=$('dateSelect').value;
   if(!S.manifest||!S.dateIndex)return;
-  const zones=Object.keys(S.dateIndex.zones||{});
+  const zones=zonesForActivePic(Object.keys(S.dateIndex.zones||{}));
   const currentZone=$('zoneSelect').value;
   for(const z of zones){
     if(z===currentZone)continue;
@@ -137,6 +140,35 @@ async function loadAuditors(){
   if(!S.auditors.length)S.auditors=['Palupi','Diana','Wiwin'];
 }
 
+async function loadAuditPicZones(){
+  try{
+    const cfg=await fetchJson('config/audit_pic_zones.json');
+    S.auditPicZones=cfg?.pics&&typeof cfg.pics==='object'?cfg.pics:{};
+  }catch{
+    S.auditPicZones={};
+  }
+  const sel=$('auditPicSelect');
+  if(!sel)return;
+  const pics=Object.keys(S.auditPicZones);
+  sel.innerHTML='<option value="all">Semua PIC</option>'+pics.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('');
+  let saved='all';
+  try{saved=localStorage.getItem('audit_pic_filter')||'all';}catch{}
+  if(saved!=='all'&&!pics.includes(saved))saved='all';
+  S.auditPic=saved;
+  sel.value=saved;
+}
+
+function zonesForActivePic(zones){
+  const pic=S.auditPic||'all';
+  if(pic==='all')return [...zones].sort();
+  const allowed=new Set(S.auditPicZones?.[pic]||[]);
+  return [...zones].filter(z=>allowed.has(z)).sort();
+}
+
+function zoneAllowedByAuditPic(zone){
+  return zonesForActivePic([zone]).length>0;
+}
+
 function setAuditor(name){
   S.auditor=name||null;
   try{localStorage.setItem('audit_auditor_name',S.auditor||'');}catch{}
@@ -164,6 +196,7 @@ async function init(){
   initMap();
   try{
     await ensureAuditor();
+    await loadAuditPicZones();
     S.manifest=await fetchJson('data/manifest.json');
     const s=S.manifest.stats||{};
     $('buildInfo').textContent=`${S.manifest.generatedAt} · ${s.routes||0} routes · ${s.issues||0} issues`;
@@ -197,6 +230,14 @@ $('dateSelect').addEventListener('change',async()=>{
   await loadDateIndex(d);await loadZoneData();
 });
 $('zoneSelect').addEventListener('change',loadZoneData);
+$('auditPicSelect').addEventListener('change',async()=>{
+  S.auditPic=$('auditPicSelect').value||'all';
+  try{localStorage.setItem('audit_pic_filter',S.auditPic);}catch{}
+  $('zoneSelect').value='all';
+  if(S.dateIndex)await loadDateIndex($('dateSelect').value);
+  await loadZoneData();
+  warmCache();
+});
 $('searchInput').addEventListener('input',debounce(()=>{renderRouteList();renderIssueList();},180));
 
 /* stats bar — clickable severity filter */
@@ -391,6 +432,9 @@ $('changeAuditorBtn').addEventListener('click',()=>{
   window.loadZoneData=loadZoneData;
   window.warmCache=warmCache;
   window.loadAuditors=loadAuditors;
+  window.loadAuditPicZones=loadAuditPicZones;
+  window.zonesForActivePic=zonesForActivePic;
+  window.zoneAllowedByAuditPic=zoneAllowedByAuditPic;
   window.setAuditor=setAuditor;
   window.ensureAuditor=ensureAuditor;
   window.init=init;

@@ -43,6 +43,10 @@ function activeZone(){
   return $('zoneSelect')?.value||'all';
 }
 
+function activeAuditPic(){
+  return $('auditPicSelect')?.value||S.auditPic||'all';
+}
+
 function reportPeriodLabel(){
   const ym=activeMonth();
   if(!ym)return 'periode aktif';
@@ -54,7 +58,9 @@ function reportPeriodLabel(){
 function updateExportScopeText(){
   const zone=activeZone();
   const zoneText=zone==='all'?'semua zona':`zona ${zone}`;
-  $('exportScopeText').textContent=`Periode: ${reportPeriodLabel()} · Scope aktif: ${zoneText}. Catatan auditor ikut dibawa.`;
+  const pic=activeAuditPic();
+  const picText=pic==='all'?'semua PIC':`PIC audit ${pic}`;
+  $('exportScopeText').textContent=`Periode: ${reportPeriodLabel()} · Scope aktif: ${picText}, ${zoneText}. Catatan auditor ikut dibawa.`;
 }
 
 function issueTypeName(t){
@@ -98,7 +104,7 @@ async function reportDataset({scope='active'}={}){
       }
       continue;
     }
-    const zones=Object.keys(S.manifest.files[date].zones||{}).filter(z=>scope==='all'||zone==='all'||z===zone);
+    const zones=zonesForActivePic(Object.keys(S.manifest.files[date].zones||{})).filter(z=>scope==='all'||zone==='all'||z===zone);
     for(const z of zones){
       const file=S.manifest.files[date].zones[z];
       let data=S.dataCache?.[file];
@@ -109,7 +115,7 @@ async function reportDataset({scope='active'}={}){
       (data.issues||[]).forEach(i=>issues.push(i));
     }
   }
-  return {routes,issues,notesByDate,period:ym,zone};
+  return {routes,issues,notesByDate,period:ym,zone,pic:activeAuditPic()};
 }
 
 function fuFrom(notesByDate,date,issueId){

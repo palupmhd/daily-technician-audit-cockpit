@@ -1,0 +1,31 @@
+{
+  "pics": {
+    "Palupi": [
+      "MEDAN",
+      "YOGYAKARTA",
+      "BENGKULU",
+      "PONTIANAK",
+      "BATAM",
+      "BEKASI",
+      "JEMBER",
+      "PENGEMBANGAN",
+      "PENGEMBANGAN_03",
+      "SINGKAWANG",
+      "SORONG"
+    ],
+    "Diana": [
+      "GORONTALO",
+      "SURABAYA",
+      "BALI",
+      "MANADO",
+      "PENGEMBANGAN_02",
+      "PENGEMBANGAN_04",
+      "JAKARTA_PROJECT",
+      "NON_SEWA",
+      "PENGEMBANGAN_01",
+      "PURWOKERTO",
+      "JAKARTA_01",
+      "JAKARTA_03"
+    ]
+  }
+}

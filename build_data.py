@@ -334,6 +334,22 @@ def duration_severity_by_delta(delta_min: int, rules: Dict[str, Any]) -> str:
     return "low"
 
 
+def add_duration_issue(
+    issues: List[Dict[str, Any]],
+    issue_type: str,
+    delta: int,
+    rules: Dict[str, Any],
+    **kwargs: Any,
+) -> None:
+    tolerance = int(rules.get("durationToleranceMin", 0))
+    if delta <= tolerance:
+        return
+    metrics = kwargs.pop("metrics", {}) or {}
+    metrics["deltaMin"] = delta
+    metrics["toleranceMin"] = tolerance
+    add_issue(issues, type=issue_type, severity=duration_severity_by_delta(delta, rules), metrics=metrics, **kwargs)
+
+
 def severity_downgrade(sev: str) -> str:
     return {"high": "medium", "medium": "low", "low": "low"}.get(sev, sev)
 
@@ -836,6 +852,7 @@ def build(raw_dir: Path, dist_dir: Path, config_dir: Path, cache_dir: Path, outp
                 add_issue(route_issues, type="location_unmatched", severity="high", routeId=route_id, visitId=v["visitId"], visitSeq=v["seq"], locationName=v["locationName"], message=f"{v['locationName']} tidak match ke db daftar toko.", recommendation="Samakan nama lokasi di task progress dengan db daftar toko.")
 
             # Job duration benchmark issues.
+            scored_jobs: List[Dict[str, Any]] = []
             for job in v["jobs"]:
                 if job["effectiveDurationMin"] is None:
                     continue
@@ -847,16 +864,30 @@ def build(raw_dir: Path, dist_dir: Path, config_dir: Path, cache_dir: Path, outp
                 # Notes/problemNotes capture the reason; auditor reads those separately.
                 if job.get("status") == "postponed":
                     continue
-                actual = job["effectiveDurationMin"]
-                duration_tolerance = int(rules.get("durationToleranceMin", 0))
-                if actual < b["expectedMin"]:
-                    delta = b["expectedMin"] - actual
-                    if delta > duration_tolerance:
-                        add_issue(route_issues, type="work_duration_too_short", severity=duration_severity_by_delta(delta, rules), routeId=route_id, visitId=v["visitId"], visitSeq=v["seq"], locationName=v["locationName"], message=f"Durasi {job['jobType']} terlalu cepat: {actual} menit, benchmark minimal {b['expectedMin']} menit.", recommendation="Cek bukti pekerjaan/foto/hasil perbaikan, terutama jika unit banyak.", metrics={"actualDurationMin": actual, "expectedMin": b["expectedMin"], "expectedMax": b["expectedMax"], "deltaMin": delta, "toleranceMin": duration_tolerance, "lunchDeductionMin": job.get("lunchDeductionMin", 0), "unitQty": job.get("unitQty")})
-                elif actual > b["expectedMax"]:
-                    delta = actual - b["expectedMax"]
-                    if delta > duration_tolerance:
-                        add_issue(route_issues, type="work_duration_too_long", severity=duration_severity_by_delta(delta, rules), routeId=route_id, visitId=v["visitId"], visitSeq=v["seq"], locationName=v["locationName"], message=f"Durasi {job['jobType']} terlalu lama: {actual} menit, benchmark maksimal {b['expectedMax']} menit.", recommendation="Cek catatan kendala, sparepart, atau alasan pekerjaan memanjang.", metrics={"actualDurationMin": actual, "expectedMin": b["expectedMin"], "expectedMax": b["expectedMax"], "deltaMin": delta, "toleranceMin": duration_tolerance, "lunchDeductionMin": job.get("lunchDeductionMin", 0), "unitQty": job.get("unitQty")})
+                scored_jobs.append(job)
+
+            if len(scored_jobs) > 1:
+                bundle_actual = v.get("effectiveDurationMin")
+                bundle_benchmarks = [j["benchmark"] for j in scored_jobs]
+                bundle_min = max(int(b.get("expectedMin", 0)) for b in bundle_benchmarks)
+                bundle_max = sum(int(b.get("expectedMax", 0)) for b in bundle_benchmarks)
+                bundle_types = sorted({j.get("jobType", "") for j in scored_jobs if j.get("jobType")})
+                if bundle_actual is not None and bundle_actual < bundle_min:
+                    delta = bundle_min - bundle_actual
+                    add_duration_issue(route_issues, "work_duration_too_short", delta, rules, routeId=route_id, visitId=v["visitId"], visitSeq=v["seq"], locationName=v["locationName"], message=f"Durasi gabungan {', '.join(bundle_types)} terlalu cepat: {bundle_actual} menit, benchmark minimal {bundle_min} menit.", recommendation="Cek bukti pekerjaan/foto/hasil perbaikan untuk seluruh pekerjaan di toko ini.", metrics={"actualDurationMin": bundle_actual, "expectedMin": bundle_min, "expectedMax": bundle_max, "bundleScoring": True, "jobTypes": bundle_types, "jobCount": len(scored_jobs), "lunchDeductionMin": v.get("lunchDeductionMin", 0), "unitQty": sum(safe_float(j.get("unitQty")) or 0 for j in scored_jobs)})
+                elif bundle_actual is not None and bundle_actual > bundle_max:
+                    delta = bundle_actual - bundle_max
+                    add_duration_issue(route_issues, "work_duration_too_long", delta, rules, routeId=route_id, visitId=v["visitId"], visitSeq=v["seq"], locationName=v["locationName"], message=f"Durasi gabungan {', '.join(bundle_types)} terlalu lama: {bundle_actual} menit, benchmark maksimal {bundle_max} menit.", recommendation="Cek catatan kendala, sparepart, atau alasan pekerjaan memanjang untuk seluruh pekerjaan di toko ini.", metrics={"actualDurationMin": bundle_actual, "expectedMin": bundle_min, "expectedMax": bundle_max, "bundleScoring": True, "jobTypes": bundle_types, "jobCount": len(scored_jobs), "lunchDeductionMin": v.get("lunchDeductionMin", 0), "unitQty": sum(safe_float(j.get("unitQty")) or 0 for j in scored_jobs)})
+            else:
+                for job in scored_jobs:
+                    b = job["benchmark"]
+                    actual = job["effectiveDurationMin"]
+                    if actual < b["expectedMin"]:
+                        delta = b["expectedMin"] - actual
+                        add_duration_issue(route_issues, "work_duration_too_short", delta, rules, routeId=route_id, visitId=v["visitId"], visitSeq=v["seq"], locationName=v["locationName"], message=f"Durasi {job['jobType']} terlalu cepat: {actual} menit, benchmark minimal {b['expectedMin']} menit.", recommendation="Cek bukti pekerjaan/foto/hasil perbaikan, terutama jika unit banyak.", metrics={"actualDurationMin": actual, "expectedMin": b["expectedMin"], "expectedMax": b["expectedMax"], "lunchDeductionMin": job.get("lunchDeductionMin", 0), "unitQty": job.get("unitQty")})
+                    elif actual > b["expectedMax"]:
+                        delta = actual - b["expectedMax"]
+                        add_duration_issue(route_issues, "work_duration_too_long", delta, rules, routeId=route_id, visitId=v["visitId"], visitSeq=v["seq"], locationName=v["locationName"], message=f"Durasi {job['jobType']} terlalu lama: {actual} menit, benchmark maksimal {b['expectedMax']} menit.", recommendation="Cek catatan kendala, sparepart, atau alasan pekerjaan memanjang.", metrics={"actualDurationMin": actual, "expectedMin": b["expectedMin"], "expectedMax": b["expectedMax"], "lunchDeductionMin": job.get("lunchDeductionMin", 0), "unitQty": job.get("unitQty")})
 
         # Attendance for route members.
         attendance: List[Dict[str, Any]] = []

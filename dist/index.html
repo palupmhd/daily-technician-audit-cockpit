@@ -67,6 +67,7 @@
     .left-panel{display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface);min-height:0;overflow:hidden;}
     .left-top{padding:12px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:8px;flex-shrink:0;}
     .filter-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+    .filter-row.pic-row{grid-template-columns:1fr;}
     .field{display:flex;flex-direction:column;gap:3px;}
     .field-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
     .field select,.field input{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:7px 8px;outline:none;font-size:13px;color:var(--text);width:100%;}
@@ -508,6 +509,9 @@
           <div class="field"><span class="field-label">Tanggal</span><input type="date" id="dateSelect"></div>
           <div class="field"><span class="field-label">Zona</span><select id="zoneSelect"></select></div>
         </div>
+        <div class="filter-row pic-row">
+          <div class="field"><span class="field-label">PIC Audit</span><select id="auditPicSelect"><option value="all">Semua PIC</option></select></div>
+        </div>
         <div class="field">
           <div class="search-wrap">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -743,6 +747,8 @@ const S={
   gpsFilterTouched:false,
   auditor:null,
   auditors:[],
+  auditPic:'all',
+  auditPicZones:{},
   gpsTimeFilter:'all',  // 'all' | 'after_route'
   qfHideNoise:true,qfOnlyAction:false,qfHideResolved:false,qfHideNoiseIssue:false,
   followupUi:{edit:{},statusOpen:{}},

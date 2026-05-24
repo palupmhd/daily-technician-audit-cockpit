@@ -131,6 +131,8 @@ expectedMax = max(maxTotal, setupMin + qty × maxPerUnit) ÷ parallelFactor
 
 **Catatan:** `minTotal` dan `maxTotal` adalah floor, bukan ceiling. Untuk unit banyak, formula per-unit yang menang. Ini mencegah benchmark terlalu kecil untuk pekerjaan skala besar.
 
+Jika satu toko memiliki beberapa pekerjaan selesai di visit yang sama, sistem menilai durasi sebagai bundle visit. Ini mencegah kasus administratif seperti `keluhan` dikerjakan sekalian dengan `servis`, tetapi timestamp `servis` baru ditutup 1-2 menit setelah keluhan, lalu salah terbaca sebagai pekerjaan terlalu cepat.
+
 ---
 
 ### Parameter per Tipe Pekerjaan
@@ -254,6 +256,23 @@ Memetakan nama zona audit ke nama vehicle zone. Vehicle zone digunakan untuk:
 Zona yang tidak ada di file ini menggunakan nama zonanya sendiri sebagai vehicle zone.
 
 **Kapan perlu ditambah:** ketika ada zona audit baru yang kendaraannya berbagi pool dengan zona lain, atau ketika traffic profile zona tersebut tidak ada di `city_traffic_profile.json` dan ingin menggunakan profile zona lain.
+
+---
+
+## `audit_pic_zones.json`
+
+Memetakan PIC audit ke zona yang menjadi tanggung jawabnya di UI dan export.
+
+```json
+{
+  "pics": {
+    "Palupi": ["MEDAN", "YOGYAKARTA"],
+    "Diana": ["GORONTALO", "SURABAYA"]
+  }
+}
+```
+
+Filter `PIC Audit` di left panel memakai config ini untuk membatasi dropdown zona, view semua zona, list route/issue, dan export periode aktif. Gunakan `Semua PIC` untuk melihat seluruh zona.
 
 ---
 

@@ -227,7 +227,7 @@ async function loadAllZones(){
   if(S.allZonesData)return S.allZonesData;
   const date=$('dateSelect').value;
   if(!S.dateIndex)return null;
-  const zones=Object.keys(S.dateIndex.zones||{});
+  const zones=zonesForActivePic(Object.keys(S.dateIndex.zones||{}));
   const results=[];
   // Load all zones in parallel (limit to ~5 concurrent)
   const CONCURRENT=5;
@@ -253,7 +253,7 @@ async function loadAllZones(){
 async function renderZoneList(){
   const date=$('dateSelect').value;
   if(!S.dateIndex)return;
-  const zones=Object.keys(S.dateIndex.zones||{}).sort();
+  const zones=zonesForActivePic(Object.keys(S.dateIndex.zones||{}).sort());
 
   // Show High Issues section immediately from already-loaded caches
   function renderHighSection(){
