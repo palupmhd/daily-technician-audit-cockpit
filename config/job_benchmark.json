@@ -8,31 +8,31 @@
   },
   "servis": {
     "setupMin": 5,
-    "minPerUnit": 15,
-    "maxPerUnit": 50,
-    "minTotal": 20,
-    "maxTotal": 180
+    "minPerUnit": 14,
+    "maxPerUnit": 60,
+    "minTotal": 45,
+    "maxTotal": 240
   },
   "keluhan": {
-    "setupMin": 0,
-    "minPerUnit": 20,
+    "setupMin": 15,
+    "minPerUnit": 30,
     "maxPerUnit": 180,
-    "minTotal": 20,
-    "maxTotal": 240
+    "minTotal": 45,
+    "maxTotal": 300
   },
   "tambah ac": {
     "setupMin": 30,
-    "minPerUnit": 120,
-    "maxPerUnit": 240,
-    "minTotal": 120,
-    "maxTotal": 480
+    "minPerUnit": 150,
+    "maxPerUnit": 300,
+    "minTotal": 240,
+    "maxTotal": 720
   },
   "ac baru": {
     "setupMin": 30,
-    "minPerUnit": 120,
-    "maxPerUnit": 240,
-    "minTotal": 120,
-    "maxTotal": 480
+    "minPerUnit": 150,
+    "maxPerUnit": 300,
+    "minTotal": 240,
+    "maxTotal": 720
   },
   "bongkar": {
     "setupMin": 15,

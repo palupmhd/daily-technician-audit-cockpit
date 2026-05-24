@@ -31,6 +31,32 @@ function severityLabel(s){
   return s==='high'?'TINGGI':s==='medium'?'SEDANG':'RENDAH';
 }
 
+function followupStatusLabel(s){
+  return s==='clarified'?'Sudah diklarifikasi':s==='escalated'?'Dieskalasi':s==='invalid'?'Tidak valid':'Belum ditindaklanjuti';
+}
+
+function activeMonth(){
+  return String($('dateSelect')?.value||'').slice(0,7);
+}
+
+function activeZone(){
+  return $('zoneSelect')?.value||'all';
+}
+
+function reportPeriodLabel(){
+  const ym=activeMonth();
+  if(!ym)return 'periode aktif';
+  const [y,m]=ym.split('-');
+  const months=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  return `${months[parseInt(m,10)-1]} ${y}`;
+}
+
+function updateExportScopeText(){
+  const zone=activeZone();
+  const zoneText=zone==='all'?'semua zona':`zona ${zone}`;
+  $('exportScopeText').textContent=`Periode: ${reportPeriodLabel()} · Scope aktif: ${zoneText}. Catatan auditor ikut dibawa.`;
+}
+
 function issueTypeName(t){
   const map={
     late_first_store:'Keterlambatan Toko Pertama',
@@ -41,6 +67,53 @@ function issueTypeName(t){
     missing_distance:'Data Jarak Belum Tersedia',
   };
   return map[t]||t.replace(/_/g,' ');
+}
+
+async function notesForDate(date){
+  let notes={};
+  try{notes=JSON.parse(localStorage.getItem(`audit_followups_${date}`)||'{}');}catch{}
+  if(SN?.enabled){
+    try{
+      const r=await fetch(`/api/notes/${date}`,{signal:AbortSignal.timeout(1800)});
+      if(r.ok)notes={...notes,...await r.json()};
+    }catch{}
+  }
+  if(date===(S.zoneData?.date||$('dateSelect')?.value))notes={...notes,...(S.followups||{})};
+  return notes;
+}
+
+async function reportDataset({scope='active'}={}){
+  const ym=activeMonth();
+  const zone=activeZone();
+  const dates=(S.manifest?.availableDates||[]).filter(d=>String(d).startsWith(ym));
+  const targetDates=dates.length?dates:[$('dateSelect').value].filter(Boolean);
+  const routes=[],issues=[];
+  const notesByDate={};
+  for(const date of targetDates){
+    notesByDate[date]=await notesForDate(date);
+    if(!S.manifest?.files?.[date]){
+      if(S.zoneData?.date===date){
+        (S.zoneData.routes||[]).forEach(r=>routes.push(r));
+        (S.zoneData.issues||[]).forEach(i=>issues.push(i));
+      }
+      continue;
+    }
+    const zones=Object.keys(S.manifest.files[date].zones||{}).filter(z=>scope==='all'||zone==='all'||z===zone);
+    for(const z of zones){
+      const file=S.manifest.files[date].zones[z];
+      let data=S.dataCache?.[file];
+      if(!data){
+        try{data=await fetchJson(file);S.dataCache[file]=data;}catch{continue;}
+      }
+      (data.routes||[]).forEach(r=>routes.push(r));
+      (data.issues||[]).forEach(i=>issues.push(i));
+    }
+  }
+  return {routes,issues,notesByDate,period:ym,zone};
+}
+
+function fuFrom(notesByDate,date,issueId){
+  return notesByDate?.[date]?.[issueId]||{status:'pending',note:''};
 }
 
 /* ── PRINT REPORT ── */
@@ -231,15 +304,16 @@ function printReport(){
 }
 
 /* ── CSV EXPORTS ── */
-function exportFieldReport(){
+async function exportFieldReport(){
+  const ds=await reportDataset({scope:'active'});
   const rows=[];
-  (S.zoneData?.routes||[]).forEach(r=>{
+  (ds.routes||[]).forEach(r=>{
     const actionIssues=(r.issues||[]).filter(i=>ACTION_TYPES.has(i.type))
       .sort((a,b)=>(SEV[b.severity]||0)-(SEV[a.severity]||0));
     if(!actionIssues.length)return;
     actionIssues.forEach(i=>{
       const v=(r.visits||[]).find(v=>v.visitId===i.visitId);
-      const fu=getFu(i.id);
+      const fu=fuFrom(ds.notesByDate,r.date,i.id);
       const m=i.metrics||{};
       let keterangan='';
       if(i.type==='late_first_store'&&m.actualStart)
@@ -262,18 +336,23 @@ function exportFieldReport(){
         Rekomendasi:i.recommendation||'—',
         'Jam Mulai':r.startTime,
         'Jam Selesai':r.endTime,
-        'Status Tindak Lanjut':fu.status==='pending'?'Belum ditindaklanjuti':fu.status==='clarified'?'Sudah diklarifikasi':fu.status==='escalated'?'Dieskalasi':'Tidak valid',
+        'Status Tindak Lanjut':followupStatusLabel(fu.status),
+        Auditor:fu.auditor||'—',
         'Catatan Auditor':fu.note||'—',
+        'Update Catatan':fu.updatedAt?new Date(fu.updatedAt).toLocaleString('id-ID'):'—',
       });
     });
   });
-  dlCSV(`laporan_lapangan_${S.zoneData?.date}_${S.zoneData?.zone}.csv`,rows);
+  const scope=ds.zone==='all'?'semua_zona':ds.zone;
+  dlCSV(`laporan_lapangan_${ds.period}_${scope}.csv`,rows);
 }
 
-function exportDataQuality(){
+async function exportDataQuality(){
+  const ds=await reportDataset({scope:'active'});
   const rows=[];
-  (S.zoneData?.routes||[]).forEach(r=>{
+  (ds.routes||[]).forEach(r=>{
     (r.issues||[]).filter(i=>NOISE_TYPES.has(i.type)).forEach(i=>{
+      const fu=fuFrom(ds.notesByDate,r.date,i.id);
       rows.push({
         Tanggal:fmtDate(r.date),
         Zona:r.zone,
@@ -283,32 +362,44 @@ function exportDataQuality(){
         Detail:i.message,
         'Tindakan':i.recommendation||'—',
         'PairId (teknis)':i.metrics?.pairId||'—',
+        'Status Tindak Lanjut':followupStatusLabel(fu.status),
+        Auditor:fu.auditor||'—',
+        'Catatan Auditor':fu.note||'—',
+        'Update Catatan':fu.updatedAt?new Date(fu.updatedAt).toLocaleString('id-ID'):'—',
       });
     });
   });
-  dlCSV(`laporan_data_${S.zoneData?.date}_${S.zoneData?.zone}.csv`,rows);
+  const scope=ds.zone==='all'?'semua_zona':ds.zone;
+  dlCSV(`laporan_data_quality_${ds.period}_${scope}.csv`,rows);
 }
 
 async function exportExecutiveSummary(){
-  const all=await loadAllZones();
-  if(!all||!all.length){toast('Gagal load data zona.');return;}
-  const rows=all.map(({zone,data})=>{
-    const routes=data.routes||[];
-    const actionable=(data.issues||[]).filter(i=>!NOISE_TYPES.has(i.type));
+  const ds=await reportDataset({scope:'all'});
+  if(!ds.routes.length){toast('Gagal load data zona.');return;}
+  const zones=[...new Set(ds.routes.map(r=>r.zone).filter(Boolean))].sort();
+  const rows=zones.map(zone=>{
+    const routes=ds.routes.filter(r=>r.zone===zone);
+    const zoneIssues=ds.issues.filter(i=>routes.some(r=>r.routeId===i.routeId));
+    const actionable=zoneIssues.filter(i=>!NOISE_TYPES.has(i.type));
     const critical=routes.filter(r=>r.riskLevel?.toLowerCase().includes('critical'));
     const review=routes.filter(r=>r.riskLevel?.toLowerCase().includes('needs'));
+    const actionIssues=zoneIssues.filter(i=>ACTION_TYPES.has(i.type));
+    const followups=actionIssues.map(i=>fuFrom(ds.notesByDate,routes.find(r=>r.routeId===i.routeId)?.date,i.id));
+    const done=followups.filter(f=>f.status&&f.status!=='pending').length;
     return{
-      Tanggal:fmtDate(data.date),
+      Periode:reportPeriodLabel(),
       Zona:zone,
       'Total Team':routes.length,
       'Status Kritis':critical.length,
       'Perlu Ditinjau':review.length,
       'Temuan Tinggi':actionable.filter(i=>i.severity==='high').length,
       'Temuan Sedang':actionable.filter(i=>i.severity==='medium').length,
+      'Follow-up Selesai':done,
+      'Total Follow-up':actionIssues.length,
       'Team Kritis':critical.map(r=>r.lead||r.teamName).join('; ')||'—',
     };
   }).sort((a,b)=>b['Status Kritis']-a['Status Kritis']||b['Temuan Tinggi']-a['Temuan Tinggi']);
-  dlCSV(`summary_eksekutif_${$('dateSelect').value}.csv`,rows);
+  dlCSV(`summary_eksekutif_${ds.period}_semua_zona.csv`,rows);
 }
 
 function exportSummaryRaw(){
@@ -323,21 +414,24 @@ function exportSummaryRaw(){
     })));
 }
 
-function exportIssuesRaw(){
-  dlCSV(`issue_evidence_${S.zoneData?.date}_${S.zoneData?.zone}.csv`,
-    (S.zoneData?.issues||[]).map(i=>{
-      const r=routeById(i.routeId)||{};
-      const fu=getFu(i.id);
+async function exportIssuesRaw(){
+  const ds=await reportDataset({scope:'active'});
+  const routesById=Object.fromEntries(ds.routes.map(r=>[r.routeId,r]));
+  const rows=(ds.issues||[]).map(i=>{
+      const r=routesById[i.routeId]||{};
+      const fu=fuFrom(ds.notesByDate,r.date,i.id);
       return{
         Tanggal:r.date,Zona:r.zone||S.zoneData.zone,Team:r.teamName||'','PIC Aplikasi':r.lead||'',
-        IssueType:i.type,Severity:i.severity,VisitSeq:i.visitSeq||'',Lokasi:i.locationName||'',
+        IssueType:issueTypeName(i.type),Severity:severityLabel(i.severity),VisitSeq:i.visitSeq||'',Lokasi:i.locationName||'',
         Message:i.message||'',Recommendation:i.recommendation||'',
         Actual:i.metrics?.actualDurationMin??i.metrics?.actualGapMin??i.metrics?.actualStart??'',
         Expected:i.metrics?.expectedMin??i.metrics?.expectedTravelMin??i.metrics?.expectedLatest??'',
         DeltaMin:i.metrics?.deltaMin??'',
-        FollowupStatus:fu.status,FollowupNote:fu.note||'',
+        FollowupStatus:followupStatusLabel(fu.status),Auditor:fu.auditor||'',FollowupNote:fu.note||'',FollowupUpdatedAt:fu.updatedAt||'',
       };
-    }));
+    });
+  const scope=ds.zone==='all'?'semua_zona':ds.zone;
+  dlCSV(`issue_evidence_${ds.period}_${scope}.csv`,rows);
 }
 
 function exportRouteRaw(){

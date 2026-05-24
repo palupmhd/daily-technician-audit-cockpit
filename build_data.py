@@ -326,6 +326,14 @@ def severity_by_delta(delta_min: int, rules: Dict[str, Any]) -> str:
     return "low"
 
 
+def duration_severity_by_delta(delta_min: int, rules: Dict[str, Any]) -> str:
+    if delta_min >= int(rules.get("durationHighDeltaMin", 120)):
+        return "high"
+    if delta_min >= int(rules.get("durationMediumDeltaMin", 45)):
+        return "medium"
+    return "low"
+
+
 def severity_downgrade(sev: str) -> str:
     return {"high": "medium", "medium": "low", "low": "low"}.get(sev, sev)
 
@@ -358,9 +366,14 @@ def risk_level(score: int, rules: Dict[str, Any], issues: Optional[List[Dict[str
             except ValueError:
                 return current
 
-        if high_count >= 2 or med_count >= 4:
+        critical_high_count = int(rules.get("severityOverrideCriticalHighCount", 2))
+        critical_medium_count = int(rules.get("severityOverrideCriticalMediumCount", 4))
+        needs_review_high_count = int(rules.get("severityOverrideNeedsReviewHighCount", 1))
+        needs_review_medium_count = int(rules.get("severityOverrideNeedsReviewMediumCount", 3))
+
+        if high_count >= critical_high_count or med_count >= critical_medium_count:
             band_label = at_least(band_label, "Critical")
-        elif high_count >= 1 or med_count >= 3:
+        elif high_count >= needs_review_high_count or med_count >= needs_review_medium_count:
             band_label = at_least(band_label, "Needs Review")
     return band_label
 
@@ -835,12 +848,15 @@ def build(raw_dir: Path, dist_dir: Path, config_dir: Path, cache_dir: Path, outp
                 if job.get("status") == "postponed":
                     continue
                 actual = job["effectiveDurationMin"]
+                duration_tolerance = int(rules.get("durationToleranceMin", 0))
                 if actual < b["expectedMin"]:
                     delta = b["expectedMin"] - actual
-                    add_issue(route_issues, type="work_duration_too_short", severity="medium" if delta >= 30 else "low", routeId=route_id, visitId=v["visitId"], visitSeq=v["seq"], locationName=v["locationName"], message=f"Durasi {job['jobType']} terlalu cepat: {actual} menit, benchmark minimal {b['expectedMin']} menit.", recommendation="Cek bukti pekerjaan/foto/hasil perbaikan, terutama jika unit banyak.", metrics={"actualDurationMin": actual, "expectedMin": b["expectedMin"], "expectedMax": b["expectedMax"], "lunchDeductionMin": job.get("lunchDeductionMin", 0), "unitQty": job.get("unitQty")})
+                    if delta > duration_tolerance:
+                        add_issue(route_issues, type="work_duration_too_short", severity=duration_severity_by_delta(delta, rules), routeId=route_id, visitId=v["visitId"], visitSeq=v["seq"], locationName=v["locationName"], message=f"Durasi {job['jobType']} terlalu cepat: {actual} menit, benchmark minimal {b['expectedMin']} menit.", recommendation="Cek bukti pekerjaan/foto/hasil perbaikan, terutama jika unit banyak.", metrics={"actualDurationMin": actual, "expectedMin": b["expectedMin"], "expectedMax": b["expectedMax"], "deltaMin": delta, "toleranceMin": duration_tolerance, "lunchDeductionMin": job.get("lunchDeductionMin", 0), "unitQty": job.get("unitQty")})
                 elif actual > b["expectedMax"]:
                     delta = actual - b["expectedMax"]
-                    add_issue(route_issues, type="work_duration_too_long", severity="medium" if delta >= 60 else "low", routeId=route_id, visitId=v["visitId"], visitSeq=v["seq"], locationName=v["locationName"], message=f"Durasi {job['jobType']} terlalu lama: {actual} menit, benchmark maksimal {b['expectedMax']} menit.", recommendation="Cek catatan kendala, sparepart, atau alasan pekerjaan memanjang.", metrics={"actualDurationMin": actual, "expectedMin": b["expectedMin"], "expectedMax": b["expectedMax"], "lunchDeductionMin": job.get("lunchDeductionMin", 0), "unitQty": job.get("unitQty")})
+                    if delta > duration_tolerance:
+                        add_issue(route_issues, type="work_duration_too_long", severity=duration_severity_by_delta(delta, rules), routeId=route_id, visitId=v["visitId"], visitSeq=v["seq"], locationName=v["locationName"], message=f"Durasi {job['jobType']} terlalu lama: {actual} menit, benchmark maksimal {b['expectedMax']} menit.", recommendation="Cek catatan kendala, sparepart, atau alasan pekerjaan memanjang.", metrics={"actualDurationMin": actual, "expectedMin": b["expectedMin"], "expectedMax": b["expectedMax"], "deltaMin": delta, "toleranceMin": duration_tolerance, "lunchDeductionMin": job.get("lunchDeductionMin", 0), "unitQty": job.get("unitQty")})
 
         # Attendance for route members.
         attendance: List[Dict[str, Any]] = []
@@ -933,8 +949,9 @@ def build(raw_dir: Path, dist_dir: Path, config_dir: Path, cache_dir: Path, outp
             distance_km_used = safe_float(dist_item.get("distanceKm")) if dist_item else None
             if duration is not None:
                 delta = int(round(eff_gap - duration))
-                if delta > 30:
-                    add_issue(route_issues, type="travel_gap_too_long", severity=severity_by_delta(delta, rules), routeId=route_id, visitId=b["visitId"], visitSeq=b["seq"], locationName=b["locationName"], message=f"Gap menuju {b['locationName']} terlalu lama: efektif {eff_gap} menit, estimasi travel {int(round(duration))} menit.", recommendation="Cek GPS kendaraan dan alasan jeda antar toko.", metrics={"actualGapMin": actual_gap, "lunchDeductionMin": lunch, "effectiveGapMin": eff_gap, "expectedTravelMin": int(round(duration)), "deltaMin": delta, "distanceKm": distance_km_used, "pairId": dist_item.get("pairId") if dist_item else None})
+                travel_gap_tolerance = int(rules.get("travelGapToleranceMin", 30))
+                if delta > travel_gap_tolerance:
+                    add_issue(route_issues, type="travel_gap_too_long", severity=severity_by_delta(delta, rules), routeId=route_id, visitId=b["visitId"], visitSeq=b["seq"], locationName=b["locationName"], message=f"Gap menuju {b['locationName']} terlalu lama: efektif {eff_gap} menit, estimasi travel {int(round(duration))} menit.", recommendation="Cek GPS kendaraan dan alasan jeda antar toko.", metrics={"actualGapMin": actual_gap, "lunchDeductionMin": lunch, "effectiveGapMin": eff_gap, "expectedTravelMin": int(round(duration)), "deltaMin": delta, "toleranceMin": travel_gap_tolerance, "distanceKm": distance_km_used, "pairId": dist_item.get("pairId") if dist_item else None})
 
         # Risk score.
         weights = rules.get("riskWeights", {"high": 5, "medium": 3, "low": 1})

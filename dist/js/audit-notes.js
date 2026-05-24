@@ -33,7 +33,11 @@
     return !!S.followupUi.statusOpen[issueId];
   }
   function setFu(issueId,patch){
-    S.followups[issueId]={...getFu(issueId),...patch};
+    if(!S.auditor){
+      $('identityGate')?.classList.add('show');
+      return Promise.resolve({ok:false,localOnly:true,missingAuditor:true});
+    }
+    S.followups[issueId]={...getFu(issueId),...patch,auditor:S.auditor,updatedAt:new Date().toISOString()};
     saveFollowups();
     if(SN.enabled&&S.zoneData?.date)return snSave(S.zoneData.date,issueId,S.followups[issueId]);
     return Promise.resolve({ok:true,localOnly:true});
@@ -97,7 +101,7 @@
       let changed=false;
       Object.entries(data).forEach(([id,fu])=>{
         const existing=S.followups[id];
-        if(!existing||existing.status!==fu.status||existing.note!==fu.note){
+        if(!existing||JSON.stringify(existing)!==JSON.stringify(fu)){
           S.followups[id]=fu;changed=true;
         }
       });
@@ -144,7 +148,7 @@
           let changed=false;
           Object.entries(data.notes).forEach(([id,fu])=>{
             const ex=S.followups[id];
-            if(!ex||ex.status!==fu.status||ex.note!==fu.note){
+            if(!ex||JSON.stringify(ex)!==JSON.stringify(fu)){
               S.followups[id]=fu;changed=true;
             }
           });
@@ -184,6 +188,7 @@
           </div>
           <div class="fi-followup-summary-state">${esc(activeStatus.title)}</div>
           ${noteText?`<div class="fi-followup-summary-note">${esc(noteText)}</div>`:'<div class="fi-followup-summary-empty">Belum ada catatan.</div>'}
+          ${fu.auditor?`<div class="fi-followup-summary-byline">Ditulis oleh ${esc(fu.auditor)}${fu.updatedAt?` · ${new Date(fu.updatedAt).toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'})}`:''}</div>`:''}
         </div>
       </div>`;
     }

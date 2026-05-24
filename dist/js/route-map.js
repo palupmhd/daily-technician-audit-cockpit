@@ -8,7 +8,7 @@ function invalidateSize(delays=[0]){
 
 function fitBounds(bounds){
   if(!S.map||!bounds?.length)return;
-  S.map.fitBounds(bounds,{padding:[40,40],maxZoom:15,animate:false});
+  S.map.fitBounds(bounds,{paddingTopLeft:[70,54],paddingBottomRight:[40,96],maxZoom:15,animate:false});
 }
 
 function initMap(){
@@ -110,7 +110,7 @@ function renderMap(route=null,{gpsOnly=false}={}){
   const showIssues=S.layerToggles.issues;
   const mappable=(route.visits||[]).filter(v=>v.showOnMap&&(showBranch||v.type!=='branch_task'));
   const routePts=[];
-  const useCluster=S.layerToggles.cluster&&mappable.length>1;
+  const useCluster=S.layerToggles.cluster&&mappable.length>8;
 
   if(!gpsOnly){
     if(useCluster){
@@ -163,7 +163,7 @@ function renderMap(route=null,{gpsOnly=false}={}){
 
       const issHtml=actionIss.map(i=>`
         <div style="margin-top:4px;padding:4px 7px;background:rgba(${sev==='high'?'239,68,68':'245,158,11'},.12);border-radius:5px;font-size:10px;color:${sevColor}">
-          ⚑ ${esc(i.type.replace(/_/g,' '))} — ${esc(i.message.slice(0,70))}${i.message.length>70?'…':''}
+          ⚑ ${esc(issueTypeName(i.type))} — ${esc(i.message.slice(0,70))}${i.message.length>70?'…':''}
         </div>`).join('');
 
       const distHtml=dp?.distanceKm!=null
@@ -187,7 +187,7 @@ function renderMap(route=null,{gpsOnly=false}={}){
         ${distHtml}
       </div>`;
 
-      const tooltipContent=`<strong>${esc(v.seq)}. ${esc(v.locationName)}</strong><br>${esc(v.startTime)}–${esc(v.endTime)}${actionIss.length?`<br><span style="color:${sevColor}">⚑ ${actionIss.length} issue</span>`:''}`;
+      const tooltipContent=`<strong>${esc(v.seq)}. ${esc(v.locationName)}</strong><br>${esc(v.startTime)}–${esc(v.endTime)}${actionIss.length?`<br><span style="color:${sevColor}">⚑ ${actionIss.length} temuan</span>`:''}`;
 
       const marker=L.marker([v.lat,v.lng],{icon:mkIcon(lbl,cls),_sev:sev})
         .bindPopup(popupContent,{maxWidth:300})
@@ -204,6 +204,15 @@ function renderMap(route=null,{gpsOnly=false}={}){
     function renderSegment(latA,lngA,latB,lngB,color,weight,opacity,dash,distKm,durMin,gapIssue){
       L.polyline([[latA,lngA],[latB,lngB]],{color,weight,opacity,dashArray:dash,renderer:S.renderers.route})
         .addTo(S.layers.route);
+      if(gapIssue){
+        const m=gapIssue.metrics||{};
+        const mLat=(latA+latB)/2,mLng=(lngA+lngB)/2;
+        L.marker([mLat,mLng],{icon:L.divIcon({
+          className:'',
+          html:`<div style="background:rgba(127,29,29,.94);border:1px solid rgba(248,113,113,.8);border-radius:6px;padding:5px 8px;font-size:10px;font-weight:800;color:#fee2e2;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.45);pointer-events:none;line-height:1.25">Gap ${fmtMin(m.effectiveGapMin??m.actualGapMin)}<span style="color:#fecaca;font-weight:600"> vs est ${fmtMin(m.expectedTravelMin)}</span></div>`,
+          iconAnchor:[0,-8],
+        }),interactive:false,zIndexOffset:240}).addTo(S.layers.route);
+      }
       // Distance label — only when toggle on AND distance ≥ 100m
       if(S.layerToggles.distance&&distKm!=null&&distKm>=0.1){
         const mLat=(latA+latB)/2,mLng=(lngA+lngB)/2;
@@ -247,10 +256,10 @@ function renderMap(route=null,{gpsOnly=false}={}){
       for(let i=0;i<routePts.length-1;i++){
         const a=routePts[i],b=routePts[i+1];
         const gapIssue=(route.issues||[]).find(iss=>iss.type==='travel_gap_too_long'&&iss.visitId===b.visitId);
-        let color='#3b82f6',weight=3,opacity=.72,dash='7 6';
+        let color='#60a5fa',weight=2.5,opacity=.5,dash=null;
         if(gapIssue){
           color=gapIssue.severity==='high'?'#ef4444':gapIssue.severity==='medium'?'#f59e0b':'#fbbf24';
-          weight=4;opacity=.85;dash='4 6';
+          weight=6;opacity=.95;dash=null;
         }
         renderSegment(a.lat,a.lng,b.lat,b.lng,color,weight,opacity,dash,b.dist,b.durMin,gapIssue);
       }
@@ -447,6 +456,7 @@ function selectRoute(id){
   const prev=S.selectedRouteId;
   S.selectedRouteId=id;S.selectedIssueId=null;
   const r=routeById(id);
+  S.gpsFilterTouched=false;
   updateRouteHighlight(id,prev);
   updateGpsTimeLabel(r);
   updateIssueHighlight(null,null);
@@ -462,7 +472,9 @@ function selectIssue(id){
   const r=routeById(issue.routeId);
   if(prevRoute!==issue.routeId){
     // Route changed — need full map + evidence render
+    S.gpsFilterTouched=false;
     updateRouteHighlight(issue.routeId,prevRoute);
+    updateGpsTimeLabel(r);
     renderMap(r);
     renderEvidence(r);
   } else {

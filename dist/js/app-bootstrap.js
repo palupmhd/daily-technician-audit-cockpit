@@ -5,14 +5,50 @@ async function loadDateIndex(date){
   const file=S.manifest.files[date]?.index;
   S.dateIndex=await fetchJson(file);
   const zones=Object.keys(S.dateIndex.zones||{}).sort();
-  $('zoneSelect').innerHTML=zones.map(z=>{
+  $('zoneSelect').innerHTML='<option value="all">— Semua Zona —</option>'+zones.map(z=>{
     const zd=S.dateIndex.zones[z];
     return`<option value="${esc(z)}">${esc(z)}${zd.highIssues?` ⚠${zd.highIssues}`:''}</option>`;
   }).join('');
   S.allZonesData=null;  // invalidate cache on date change
 }
 
+async function loadAllZonesAggregated(){
+  const date=$('dateSelect').value;
+  if(!S.dateIndex)return;
+  const zones=Object.keys(S.dateIndex.zones||{});
+  $('routeList').innerHTML='<div class="empty-state">Memuat semua zona...</div>';
+  $('issueList').innerHTML='<div class="empty-state">Memuat...</div>';
+  $('zoneStats').innerHTML=`
+    <div class="zstat"><div class="n">—</div><div class="l">Routes</div></div>
+    <div class="zstat danger"><div class="n">—</div><div class="l">High</div></div>
+    <div class="zstat warn"><div class="n">—</div><div class="l">Medium</div></div>
+    <div class="zstat info"><div class="n">—</div><div class="l">GPS Pts</div></div>`;
+  await new Promise(r=>setTimeout(r,0));
+  const allRoutes=[],allIssues=[];
+  const CONCURRENT=5;
+  for(let i=0;i<zones.length;i+=CONCURRENT){
+    await Promise.all(zones.slice(i,i+CONCURRENT).map(async z=>{
+      const file=S.manifest.files[date]?.zones?.[z];
+      if(!file)return;
+      let data;
+      if(S.dataCache[file]){data=S.dataCache[file];}
+      else{try{data=await fetchJson(file);S.dataCache[file]=data;}catch{return;}}
+      (data.routes||[]).forEach(r=>allRoutes.push({...r,_zone:z}));
+      (data.issues||[]).forEach(i=>allIssues.push({...i,_zone:z}));
+    }));
+  }
+  S.zoneData={routes:allRoutes,issues:allIssues,summary:{routeCount:allRoutes.length}};
+  S.gpsData=null;
+  S.selectedRouteId=null;S.selectedIssueId=null;
+  S.followupUi={edit:{},statusOpen:{}};
+  loadFollowups();
+  renderZoneStats();renderRouteList();renderIssueList();renderEvidence(null);
+  clearAllMapLayers();
+  $('mapOverlay').innerHTML='<span class="map-pill">Pilih route untuk lihat peta zona spesifik.</span>';
+}
+
 async function loadZoneData(){
+  if($('zoneSelect').value==='all'){await loadAllZonesAggregated();return;}
   const date=$('dateSelect').value,zone=$('zoneSelect').value;
   const file=S.manifest.files[date]?.zones?.[zone];
   if(!file){
@@ -32,6 +68,7 @@ async function loadZoneData(){
   else{S.zoneData=await fetchJson(file);S.dataCache[file]=S.zoneData;}
   S.gpsData=null;
   S.gpsPlateDisabled.clear();
+  S.gpsFilterTouched=false;
   $('gpsFilterPop').classList.remove('show');
   $('gpsFilterTog')?.classList.remove('active');
   const gk=S.zoneData.gpsFile;
@@ -90,14 +127,50 @@ async function warmCache(){
   }
 }
 
+async function loadAuditors(){
+  try{
+    const cfg=await fetchJson('config/auditors.json');
+    S.auditors=Array.isArray(cfg.auditors)?cfg.auditors:[];
+  }catch{
+    S.auditors=['Palupi','Diana','Wiwin'];
+  }
+  if(!S.auditors.length)S.auditors=['Palupi','Diana','Wiwin'];
+}
+
+function setAuditor(name){
+  S.auditor=name||null;
+  try{localStorage.setItem('audit_auditor_name',S.auditor||'');}catch{}
+  $('auditorNameTop').textContent=S.auditor||'Auditor';
+  $('auditorChip').style.display=S.auditor?'flex':'none';
+  $('identityGate').classList.toggle('show',!S.auditor);
+}
+
+async function ensureAuditor(){
+  await loadAuditors();
+  const sel=$('auditorSelect');
+  sel.innerHTML=S.auditors.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  let saved='';
+  try{saved=localStorage.getItem('audit_auditor_name')||'';}catch{}
+  if(saved&&S.auditors.includes(saved)){
+    sel.value=saved;
+    setAuditor(saved);
+  }else{
+    sel.value=S.auditors[0];
+    setAuditor(null);
+  }
+}
+
 async function init(){
   initMap();
   try{
+    await ensureAuditor();
     S.manifest=await fetchJson('data/manifest.json');
     const s=S.manifest.stats||{};
     $('buildInfo').textContent=`${S.manifest.generatedAt} · ${s.routes||0} routes · ${s.issues||0} issues`;
-    $('dateSelect').innerHTML=(S.manifest.availableDates||[]).map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join('');
-    if(!S.manifest.availableDates?.length)throw new Error('Manifest kosong — jalankan build_data.py dulu.');
+    const dates=S.manifest.availableDates||[];
+    if(!dates.length)throw new Error('Manifest kosong — jalankan build_data.py dulu.');
+    const di=$('dateSelect');
+    di.min=dates[dates.length-1];di.max=dates[0];di.value=dates[0];
     await loadDateIndex($('dateSelect').value);
     await loadZoneData();
     snCheck(); // probe server.py after data loaded (so dateSelect has value)
@@ -118,11 +191,35 @@ async function init(){
 }
 
 /* ── EVENTS ── */
-$('dateSelect').addEventListener('change',async()=>{await loadDateIndex($('dateSelect').value);await loadZoneData();});
+$('dateSelect').addEventListener('change',async()=>{
+  const d=$('dateSelect').value;
+  if(!(S.manifest.availableDates||[]).includes(d)){toast('Data tidak tersedia untuk tanggal ini.');$('dateSelect').value=S.manifest.availableDates?.[0]||d;return;}
+  await loadDateIndex(d);await loadZoneData();
+});
 $('zoneSelect').addEventListener('change',loadZoneData);
 $('searchInput').addEventListener('input',debounce(()=>{renderRouteList();renderIssueList();},180));
-$('severitySelect').addEventListener('change',()=>{renderRouteList();renderIssueList();});
-$('mapStyleSelect').addEventListener('change',()=>setLayer($('mapStyleSelect').value));
+
+/* stats bar — clickable severity filter */
+$('zoneStats').addEventListener('click',e=>{
+  const stat=e.target.closest('[data-sev-filter]');
+  if(!stat)return;
+  const sev=stat.dataset.sevFilter;
+  const current=$('severitySelect').value;
+  const next=current===sev?'all':sev;
+  $('severitySelect').value=next;
+  document.querySelectorAll('[data-sev-filter]').forEach(s=>s.classList.toggle('sev-active',s.dataset.sevFilter===next&&next!=='all'));
+  renderRouteList();renderIssueList();
+});
+
+/* map style — from legend */
+document.querySelectorAll('[data-style]').forEach(el=>{
+  el.addEventListener('click',()=>{
+    const style=el.dataset.style;
+    document.querySelectorAll('[data-style]').forEach(e=>e.classList.toggle('on',e.dataset.style===style));
+    $('mapStyleSelect').value=style;
+    setLayer(style);
+  });
+});
 
 /* tabs */
 document.querySelectorAll('.tab-btn').forEach(btn=>{
@@ -130,7 +227,6 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     const tab=btn.dataset.tab;
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
     document.querySelectorAll('.tab-content').forEach(c=>c.classList.toggle('active',c.id===`tabContent${tab.charAt(0).toUpperCase()+tab.slice(1)}`));
-    if(tab==='zones')renderZoneList();
   });
 });
 
@@ -200,6 +296,7 @@ function updateGpsTimeLabel(route){
   }
 }
 $('gpsSelectAll').addEventListener('click',()=>{
+  S.gpsFilterTouched=true;
   S.gpsPlateDisabled.clear();
   renderGpsPlateFilter($('gpsSearchInput')?.value||'');
   const r=routeById(S.selectedRouteId);
@@ -207,6 +304,7 @@ $('gpsSelectAll').addEventListener('click',()=>{
   scheduleRenderMap({gpsOnly:true});
 });
 $('gpsSelectNone').addEventListener('click',()=>{
+  S.gpsFilterTouched=true;
   const vehicles=S.gpsData?.gpsLayer?.vehicles||[];
   vehicles.forEach(v=>S.gpsPlateDisabled.add(v.plate));
   renderGpsPlateFilter($('gpsSearchInput')?.value||'');
@@ -235,28 +333,71 @@ document.addEventListener('click',(e)=>{
 /* Export dropdown */
 $('exportBtn').addEventListener('click',(e)=>{
   e.stopPropagation();
-  $('exportDropdown').classList.toggle('open');
+  openExportModal();
 });
 document.addEventListener('click',(e)=>{
   if(!$('exportDropdown').contains(e.target))$('exportDropdown').classList.remove('open');
 });
 
-$('expFieldBtn').addEventListener('click',()=>{exportFieldReport();$('exportDropdown').classList.remove('open');});
-$('expDataBtn').addEventListener('click',()=>{exportDataQuality();$('exportDropdown').classList.remove('open');});
+$('expFieldBtn').addEventListener('click',async()=>{await exportFieldReport();$('exportDropdown').classList.remove('open');});
+$('expDataBtn').addEventListener('click',async()=>{await exportDataQuality();$('exportDropdown').classList.remove('open');});
 $('expExecBtn').addEventListener('click',async()=>{await exportExecutiveSummary();$('exportDropdown').classList.remove('open');});
 $('expSummaryBtn').addEventListener('click',()=>{exportSummaryRaw();$('exportDropdown').classList.remove('open');});
-$('expIssueBtn').addEventListener('click',()=>{exportIssuesRaw();$('exportDropdown').classList.remove('open');});
+$('expIssueBtn').addEventListener('click',async()=>{await exportIssuesRaw();$('exportDropdown').classList.remove('open');});
 $('expRouteBtn').addEventListener('click',()=>{exportRouteRaw();$('exportDropdown').classList.remove('open');});
+
+function openExportModal(){
+  if(typeof updateExportScopeText==='function')updateExportScopeText();
+  $('exportDropdown').classList.remove('open');
+  $('exportModal').classList.add('show');
+}
+function closeExportModal(){
+  $('exportModal').classList.remove('show');
+}
+$('exportCloseBtn').addEventListener('click',closeExportModal);
+$('exportModal').addEventListener('click',e=>{if(e.target.id==='exportModal')closeExportModal();});
+document.querySelectorAll('[data-export-action]').forEach(btn=>{
+  btn.addEventListener('click',async()=>{
+    const action=btn.dataset.exportAction;
+    btn.disabled=true;
+    try{
+      if(action==='field')await exportFieldReport();
+      else if(action==='executive')await exportExecutiveSummary();
+      else if(action==='data')await exportDataQuality();
+      else if(action==='raw')await exportIssuesRaw();
+      closeExportModal();
+    }finally{
+      btn.disabled=false;
+    }
+  });
+});
 
 $('printReportBtn').addEventListener('click',printReport);
 
+$('auditorConfirmBtn').addEventListener('click',()=>{
+  const name=$('auditorSelect').value;
+  if(!name){toast('Pilih auditor dulu.');return;}
+  setAuditor(name);
+  toast(`Auditor aktif: ${name}`);
+});
+$('changeAuditorBtn').addEventListener('click',()=>{
+  if(S.auditor)$('auditorSelect').value=S.auditor;
+  $('identityGate').classList.add('show');
+});
+
 
   window.loadDateIndex=loadDateIndex;
+  window.loadAllZonesAggregated=loadAllZonesAggregated;
   window.loadZoneData=loadZoneData;
   window.warmCache=warmCache;
+  window.loadAuditors=loadAuditors;
+  window.setAuditor=setAuditor;
+  window.ensureAuditor=ensureAuditor;
   window.init=init;
   window.setupQfPill=setupQfPill;
   window.updateGpsTimeLabel=updateGpsTimeLabel;
+  window.openExportModal=openExportModal;
+  window.closeExportModal=closeExportModal;
 
   init();
 })();

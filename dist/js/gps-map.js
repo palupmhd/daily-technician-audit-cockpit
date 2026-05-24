@@ -68,6 +68,7 @@
 
     document.querySelectorAll('#gpsPlateList input[type=checkbox]').forEach(el=>{
       el.addEventListener('change',()=>{
+        S.gpsFilterTouched=true;
         const plate=el.dataset.plate;
         if(el.checked)S.gpsPlateDisabled.delete(plate);
         else S.gpsPlateDisabled.add(plate);
@@ -93,13 +94,42 @@
     S.layers.gps.clearLayers();
   }
 
+  function autoFocusGpsPlates(route){
+    if(!route||!S.gpsData||S.gpsFilterTouched)return;
+    const vehicles=(S.gpsData?.gpsLayer?.vehicles||[]).filter(v=>(v.points||[]).length);
+    if(vehicles.length<=1)return;
+    const refs=(route.visits||[])
+      .filter(v=>v.showOnMap&&v.type!=='branch_task'&&Number.isFinite(v.lat)&&Number.isFinite(v.lng))
+      .map(v=>({lat:v.lat,lng:v.lng}));
+    if(!refs.length)return;
+    const relevant=new Set();
+    vehicles.forEach(v=>{
+      let best=Infinity;
+      for(const p of (v.points||[])){
+        if(!Number.isFinite(p[1])||!Number.isFinite(p[2]))continue;
+        for(const r of refs){
+          const d=haversineKm(p[1],p[2],r.lat,r.lng);
+          if(d<best)best=d;
+          if(best<=1.0)break;
+        }
+        if(best<=1.0)break;
+      }
+      if(best<=1.0)relevant.add(v.plate);
+    });
+    if(!relevant.size||relevant.size===vehicles.length)return;
+    S.gpsPlateDisabled.clear();
+    vehicles.forEach(v=>{if(!relevant.has(v.plate))S.gpsPlateDisabled.add(v.plate);});
+    renderGpsPlateFilter($('gpsSearchInput')?.value||'');
+  }
+
   function renderGpsLayer(route){
     clearGpsLayer();
     if(!route||!S.layerToggles.gps)return;
     if(!S.gpsData){
-      loadGpsData().then(()=>{renderGpsPlateFilter();renderGpsLayer(route);}).catch(err=>toast(err.message));
+      loadGpsData().then(()=>{renderGpsPlateFilter();scheduleRenderMap({gpsOnly:true});}).catch(err=>toast(err.message));
       return;
     }
+    autoFocusGpsPlates(route);
 
     const token=S.gpsRenderToken;
     const isStale=()=>token!==S.gpsRenderToken;
@@ -152,7 +182,7 @@
       if(pts.length>1){
         const tStart=raw[0]?.[0]||'—', tEnd=raw[raw.length-1]?.[0]||'—';
 
-        L.polyline(pts,{color,weight:2,opacity:.6,renderer:S.renderers.gps})
+        L.polyline(pts,{color,weight:2,opacity:.38,renderer:S.renderers.gps})
           .bindPopup(`<div style="min-width:180px">
             <div style="font-weight:700;font-size:12px;margin-bottom:5px">GPS Track</div>
             <div style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:11px">
@@ -174,7 +204,7 @@
           const bear=Math.atan2(dx,dy)*180/Math.PI;
           L.marker([(la1+la2)/2,(lo1+lo2)/2],{icon:L.divIcon({
             className:'',
-            html:`<div style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:8px solid ${color};transform:rotate(${bear}deg);transform-origin:center;opacity:.75;pointer-events:none"></div>`,
+            html:`<div style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:8px solid ${color};transform:rotate(${bear}deg);transform-origin:center;opacity:.55;pointer-events:none"></div>`,
             iconAnchor:[4,4],
           }),interactive:false,zIndexOffset:-60}).addTo(S.layers.gps);
         }
@@ -279,5 +309,6 @@
   window.renderGpsPlateFilter=renderGpsPlateFilter;
   window.loadGpsData=loadGpsData;
   window.clearGpsLayer=clearGpsLayer;
+  window.autoFocusGpsPlates=autoFocusGpsPlates;
   window.renderGpsLayer=renderGpsLayer;
 })();

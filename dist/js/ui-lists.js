@@ -36,12 +36,11 @@ function filterRoutes(routes){
       if(!hi&&!med)return false;
     }
     if(S.qfHideResolved&&routeAllResolved(r))return false;
-    // Severity filter (uses appropriate issue pool)
+    // Severity filter — exclusive: high=only high, medium=only medium (not high), low=only low
     if(sev!=='all'){
-      const min=SEV[sev]||1;
       const pool=S.qfHideNoise?(r.issues||[]).filter(i=>!NOISE_TYPES.has(i.type)):(r.issues||[]);
-      const mx=Math.max(0,...pool.map(i=>SEV[i.severity]||1));
-      if(mx<min)return false;
+      const mx=Math.max(0,...pool.map(i=>SEV[i.severity]||0));
+      if(mx!==SEV[sev])return false;
     }
     if(!q)return true;
     const hay=[r.teamName,r.lead,r.zone,...(r.issues||[]).map(i=>`${i.type} ${i.message} ${i.locationName||''}`),...(r.visits||[]).map(v=>v.locationName)].join(' ').toLowerCase();
@@ -113,16 +112,18 @@ function autoContext(route,issue){
 /* ── RENDERS ── */
 function renderZoneStats(){
   const s=S.zoneData?.summary||{};
-  // Recount high/medium excluding noise
   const allIssues=S.zoneData?.issues||[];
   const actionable=allIssues.filter(i=>!NOISE_TYPES.has(i.type));
   const high=actionable.filter(i=>i.severity==='high').length;
   const med=actionable.filter(i=>i.severity==='medium').length;
+  const low=actionable.filter(i=>i.severity==='low').length;
+  const cur=document.getElementById('severitySelect')?.value||'all';
+  const act=v=>cur===v&&v!=='all'?' sev-active':'';
   $('zoneStats').innerHTML=`
-    <div class="zstat"><div class="n">${s.routeCount||0}</div><div class="l">Routes</div></div>
-    <div class="zstat danger"><div class="n">${high}</div><div class="l">High</div></div>
-    <div class="zstat warn"><div class="n">${med}</div><div class="l">Medium</div></div>
-    <div class="zstat info"><div class="n">${s.gpsRenderPointCount||s.gpsPointCount||0}</div><div class="l">GPS Pts</div></div>`;
+    <div class="zstat${act('all')}" data-sev-filter="all"><div class="n">${s.routeCount||0}</div><div class="l">Routes</div></div>
+    <div class="zstat danger${act('high')}" data-sev-filter="high"><div class="n">${high}</div><div class="l">High</div></div>
+    <div class="zstat warn${act('medium')}" data-sev-filter="medium"><div class="n">${med}</div><div class="l">Med</div></div>
+    <div class="zstat info${act('low')}" data-sev-filter="low"><div class="n">${low}</div><div class="l">Low</div></div>`;
 }
 
 function renderRouteList(){
@@ -150,11 +151,11 @@ function renderRouteList(){
     const isAct=r.routeId===S.selectedRouteId;
     const actCls=isAct?(sev==='high'?'sel-d':sev==='medium'?'sel-w':'sel'):'';
     const hasFu=routeHasFollowup(r)?'has-followup':'';
-    return`<div class="route-card ${actCls} ${hasFu}" data-route="${esc(r.routeId)}">
+    return`<div class="route-card ${actCls} ${hasFu}" data-route="${esc(r.routeId)}"${r._zone?` data-route-zone="${esc(r._zone)}"`:''}>
       <div class="rc-top">
         <div style="min-width:0">
           <div class="rc-name">${esc(r.teamName||r.teamKey)}</div>
-          <div class="rc-meta">PIC: ${esc(r.lead||'—')} · ${r.visitCount} lokasi · ${r.jobCount} job</div>
+          <div class="rc-meta">${r._zone?`<span style="color:var(--accent);font-weight:700;font-size:10px;letter-spacing:.03em">${esc(r._zone)}</span> · `:''}PIC: ${esc(r.lead||'—')} · ${r.visitCount} lokasi · ${r.jobCount} job</div>
         </div>
         <span class="rbadge ${rbClass(r.riskLevel)}">${esc(r.riskScore)} · ${esc(r.riskLevel)}</span>
       </div>
@@ -168,7 +169,16 @@ function renderRouteList(){
       </div>
     </div>`;
   }).join('');
-  document.querySelectorAll('[data-route]').forEach(el=>el.addEventListener('click',()=>selectRoute(el.dataset.route)));
+  document.querySelectorAll('[data-route]').forEach(el=>el.addEventListener('click',async()=>{
+    const zoneKey=el.dataset.routeZone;
+    if(zoneKey){
+      document.getElementById('zoneSelect').value=zoneKey;
+      await loadZoneData();
+      setTimeout(()=>selectRoute(el.dataset.route),150);
+    }else{
+      selectRoute(el.dataset.route);
+    }
+  }));
 }
 
 function renderIssueList(){
@@ -176,21 +186,23 @@ function renderIssueList(){
   if(S.qfHideNoiseIssue){issues=issues.filter(i=>!NOISE_TYPES.has(i.type));}
   const q=$('searchInput').value.trim().toLowerCase();
   const sev=$('severitySelect').value;
-  if(sev!=='all'){const min=SEV[sev]||1;issues=issues.filter(i=>(SEV[i.severity]||1)>=min);}
+  if(sev!=='all'){issues=issues.filter(i=>i.severity===sev);}
   if(q)issues=issues.filter(i=>`${i.type} ${i.message} ${i.locationName||''}`.toLowerCase().includes(q));
   issues=issues.slice().sort((a,b)=>(SEV[b.severity]||0)-(SEV[a.severity]||0)).slice(0,100);
   if(!issues.length){$('issueList').innerHTML='<div class="empty-state">Tidak ada issue sesuai filter.</div>';return;}
   $('issueList').innerHTML=issues.map(i=>{
     const r=routeById(i.routeId);
     const fu=getFu(i.id);
-    const fuBadge=fu.status==='clarified'?'<span class="pill normal" style="margin-left:6px">✓ done</span>':fu.status==='escalated'?'<span class="pill medium" style="margin-left:6px">↑ esc</span>':'';
-    return`<div class="issue-card sev-${esc(i.severity)}${i.id===S.selectedIssueId?' sel-ic':''}" data-issue="${esc(i.id)}">
+    const fuBadge=fu.status==='clarified'?'<span class="pill normal" style="margin-left:6px">selesai</span>':fu.status==='escalated'?'<span class="pill medium" style="margin-left:6px">eskalasi</span>':'';
+    const typeLabel=typeof issueTypeName==='function'?issueTypeName(i.type):i.type.replace(/_/g,' ');
+    return`<div class="issue-card sev-${esc(i.severity)}${i.id===S.selectedIssueId?' sel-ic':''}" data-issue="${esc(i.id)}"${i._zone?` data-issue-zone="${esc(i._zone)}"`:''}>
+
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
         <div style="min-width:0">
-          <div class="ic-type">${esc(i.type.replace(/_/g,' '))}${fuBadge}</div>
+          <div class="ic-type">${esc(typeLabel)}${fuBadge}</div>
           <div class="ic-msg">${esc(i.message)}</div>
         </div>
-        <span class="pill ${esc(i.severity)}">${esc(i.severity)}</span>
+        <span class="pill ${esc(i.severity)}">${esc(severityLabel(i.severity))}</span>
       </div>
       <div class="ic-loc">
         <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -198,7 +210,16 @@ function renderIssueList(){
       </div>
     </div>`;
   }).join('');
-  document.querySelectorAll('[data-issue]').forEach(el=>el.addEventListener('click',()=>selectIssue(el.dataset.issue)));
+  document.querySelectorAll('[data-issue]').forEach(el=>el.addEventListener('click',async()=>{
+    const zoneKey=el.dataset.issueZone;
+    if(zoneKey){
+      document.getElementById('zoneSelect').value=zoneKey;
+      await loadZoneData();
+      setTimeout(()=>selectIssue(el.dataset.issue),150);
+    }else{
+      selectIssue(el.dataset.issue);
+    }
+  }));
 }
 
 /* ── ALL ZONES VIEW ── */
@@ -320,13 +341,17 @@ async function renderZoneList(){
     const review=routes.filter(r=>r.riskLevel?.toLowerCase().includes('needs'));
     const hi=actionable.filter(i=>i.severity==='high').length;
     const med=actionable.filter(i=>i.severity==='medium').length;
-    const summary={zone:z,routeCount:routes.length,high:hi,medium:med,critical:critical.length,needsReview:review.length,riskScore:routes.reduce((s,r)=>s+(r.riskScore||0),0)};
+    const lo=actionable.filter(i=>i.severity==='low').length;
+    const summary={zone:z,routeCount:routes.length,high:hi,medium:med,low:lo,critical:critical.length,needsReview:review.length,riskScore:routes.reduce((s,r)=>s+(r.riskScore||0),0)};
     summaries.push(summary);
 
     // Update card in place
     const card=document.getElementById(`zcard-${z}`);
     if(card){
       card.style.opacity='1';
+      card.dataset.high=summary.high;
+      card.dataset.med=summary.medium;
+      card.dataset.low=summary.low;
       card.innerHTML=`
         <div class="zone-card-top">
           <span class="zone-card-name">${esc(z)}</span>
@@ -347,6 +372,23 @@ async function renderZoneList(){
     await Promise.all(zones.slice(i,i+CONCURRENT).map(loadZone));
   }
   S.allZonesData=summaries.map(s=>({zone:s.zone,data:S.dataCache[S.manifest.files[date]?.zones?.[s.zone]]})).filter(x=>x.data);
+}
+
+function filterZoneCards(){
+  const sev=S.qfZoneSev||'all';
+  document.querySelectorAll('.zone-card[id^="zcard-"]').forEach(card=>{
+    const hi=parseInt(card.dataset.high||0);
+    const med=parseInt(card.dataset.med||0);
+    const lo=parseInt(card.dataset.low||0);
+    let show=true;
+    if(sev==='high') show=hi>0;
+    else if(sev==='med') show=hi>0||med>0;
+    else if(sev==='clean') show=!hi&&!med&&!lo;
+    card.style.display=show?'':'none';
+  });
+  // Hide the cross-zone high section when filtering to clean
+  const highSec=document.getElementById('highSection');
+  if(highSec) highSec.style.display=sev==='clean'?'none':'';
 }
 
 async function jumpToZone(zone){
@@ -371,5 +413,6 @@ async function jumpToZone(zone){
   window.renderIssueList=renderIssueList;
   window.loadAllZones=loadAllZones;
   window.renderZoneList=renderZoneList;
+  window.filterZoneCards=filterZoneCards;
   window.jumpToZone=jumpToZone;
 })();

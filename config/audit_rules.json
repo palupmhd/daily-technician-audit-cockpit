@@ -7,6 +7,10 @@
   "lunchWindowStart": "11:00",
   "lunchWindowEnd": "13:30",
   "maxLunchDeductionMin": 60,
+  "durationToleranceMin": 10,
+  "durationMediumDeltaMin": 45,
+  "durationHighDeltaMin": 120,
+  "travelGapToleranceMin": 15,
   "riskWeights": {
     "high": 5,
     "medium": 3,
@@ -32,6 +36,10 @@
   ],
   "lateCriticalMin": 120,
   "severityOverride": true,
+  "severityOverrideNeedsReviewHighCount": 1,
+  "severityOverrideNeedsReviewMediumCount": 3,
+  "severityOverrideCriticalHighCount": 2,
+  "severityOverrideCriticalMediumCount": 4,
   "noiseIssueTypes": [
     "missing_distance",
     "missing_coordinate",

@@ -94,7 +94,15 @@ Ketika `true`, sistem menerapkan aturan tambahan di atas score:
 - ≥3 issue Medium → minimum **Needs Review**
 - ≥2 issue High atau ≥4 issue Medium → minimum **Critical**
 
-Ini memastikan route dengan 1 High issue tidak bisa lolos sebagai "Watch" hanya karena total score-nya kecil.
+Ini memastikan route dengan 1 High issue tidak bisa lolos sebagai "Watch" hanya karena total score-nya kecil. Threshold override sekarang dikontrol dari `severityOverrideNeedsReviewHighCount`, `severityOverrideNeedsReviewMediumCount`, `severityOverrideCriticalHighCount`, dan `severityOverrideCriticalMediumCount`.
+
+```json
+"durationToleranceMin": 10,
+"durationMediumDeltaMin": 45,
+"durationHighDeltaMin": 120,
+"travelGapToleranceMin": 15
+```
+Tolerance ini mencegah report dipenuhi selisih kecil yang tidak material. Durasi kerja baru jadi issue jika meleset lebih dari `durationToleranceMin`; travel gap baru jadi issue jika selisih efektif melebihi `travelGapToleranceMin`.
 
 ```json
 "noiseIssueTypes": [
@@ -130,30 +138,32 @@ expectedMax = max(maxTotal, setupMin + qty × maxPerUnit) ÷ parallelFactor
 #### `servis` — Kalibrasi dari 149 data points
 ```json
 "setupMin": 5,
-"minPerUnit": 15,
-"maxPerUnit": 50,
-"minTotal": 20,
-"maxTotal": 180
+"minPerUnit": 14,
+"maxPerUnit": 60,
+"minTotal": 45,
+"maxTotal": 240
 ```
-Berdasarkan distribusi aktual: p10=15m/unit, p90=55m/unit (solo equivalent). Range ini mencakup ~80% pekerjaan normal. Di bawah 15m/unit = terlalu cepat (cek foto). Di atas 50m/unit = abnormal (cek catatan kendala).
+Berdasarkan distribusi aktual: p10 sekitar 19m/unit, median sekitar 33m/unit, p90 sekitar 54m/unit (disesuaikan unit dan team factor). Range ini juga masih masuk akal terhadap referensi HVAC umum: service/tune-up atau cleaning split AC biasanya berada di kisaran 45-90 menit per unit tergantung scope.
 
 #### `keluhan` — Rentang lebar, data terbatas
 ```json
-"setupMin": 0,
-"minPerUnit": 20,
-"maxPerUnit": 180
+"setupMin": 15,
+"minPerUnit": 30,
+"maxPerUnit": 180,
+"minTotal": 45,
+"maxTotal": 300
 ```
-Keluhan bersifat sangat bervariasi — dari pengecekan 30 menit hingga penggantian komponen yang butuh 3+ jam. Hanya 9 sample done tersedia, tidak cukup untuk kalibrasi lebih ketat. Range saat ini menggunakan default.
+Keluhan bersifat sangat bervariasi — dari pengecekan ringan sampai perbaikan komponen. Minimum dibuat lebih realistis agar investigasi 1 unit yang terlalu cepat tetap terbaca, tetapi maksimum tetap longgar karena scope keluhan tidak seragam.
 
 #### `ac baru` dan `tambah ac` — Identik, data terbatas
 ```json
 "setupMin": 30,
-"minPerUnit": 120,
-"maxPerUnit": 240,
-"minTotal": 120,
-"maxTotal": 480
+"minPerUnit": 150,
+"maxPerUnit": 300,
+"minTotal": 240,
+"maxTotal": 720
 ```
-Instalasi AC baru adalah pekerjaan berat (bobok dinding, jalur instalasi, koneksi listrik). Minimum 2 jam per unit, maksimum 4 jam. `tambah ac` ke existing infrastructure seharusnya lebih cepat dari `ac baru` di lokasi baru, tapi saat ini disamakan karena data terlalu sedikit untuk memisahkan.
+Instalasi AC baru adalah pekerjaan berat (jalur instalasi, outdoor/indoor, vacuum/pressure test, koneksi listrik). Karena data internal masih sedikit, range mengikuti benchmark eksternal yang lebih konservatif: sekitar 4-8 jam untuk single-zone dan bertambah untuk multi-unit.
 
 #### `bongkar geser` — Benchmark konservatif, perlu validasi
 ```json
@@ -203,18 +213,18 @@ estimasiMenit = (jarak_km / avgSpeedKmH) × 60 + bufferMin
 | PENGEMBANGAN | 15 km/h | 12 mnt | Jabodetabek (Cibinong, Jakarta Barat) |
 | BEKASI | 17 km/h | 10 mnt | Lebih cair dari Jakarta |
 | SURABAYA | 20 km/h | 8 mnt | Kota besar tapi lebih teratur |
-| MEDAN | 20 km/h | 8 mnt | |
+| MEDAN | 16 km/h | 10 mnt | Dikoreksi dari observed route speed |
 | BALI | 20 km/h | 8 mnt | Traffic Denpasar mirip kota besar |
-| YOGYAKARTA | 20 km/h | 8 mnt | |
+| YOGYAKARTA | 16 km/h | 10 mnt | Dikoreksi dari observed route speed |
 | JEMBER | 24 km/h | 6 mnt | Kota sedang |
 | MANADO | 24 km/h | 6 mnt | |
 | GORONTALO | 24 km/h | 6 mnt | |
 | BENGKULU | 24 km/h | 6 mnt | |
-| PONTIANAK | 23 km/h | 6 mnt | |
+| PONTIANAK | 14 km/h | 10 mnt | Dikoreksi dari observed route speed |
 | PURWOKERTO | 24 km/h | 6 mnt | |
-| BATAM | 23 km/h | 6 mnt | |
+| BATAM | 18 km/h | 8 mnt | Dikoreksi dari observed route speed |
 | SINGKAWANG | 25 km/h | 6 mnt | |
-| SORONG | 30 km/h | 10 mnt | Traffic ringan, tapi buffer tetap 10 mnt |
+| SORONG | 12 km/h | 12 mnt | Data kendaraan/route masih perlu validasi |
 | DEFAULT | 22 km/h | 8 mnt | Digunakan untuk zona yang tidak terdaftar |
 
 > **Penting:** `city_traffic_profile.json` menggunakan nama **vehicle zone** (bukan audit zone). Zona seperti `JAKARTA_01`, `JAKARTA_03`, `JAKARTA_PROJECT` semuanya di-map ke `JAKARTA` via `zone_alias.json`, sehingga traffic profile JAKARTA yang dipakai.
@@ -232,13 +242,12 @@ Memetakan nama zona audit ke nama vehicle zone. Vehicle zone digunakan untuk:
   "JAKARTA_01": "JAKARTA",
   "JAKARTA_03": "JAKARTA",
   "JAKARTA_PROJECT": "JAKARTA",
-  "JAKARTA_PROJECT": "JAKARTA",
   "NON_SEWA": "JAKARTA",
   "PENGEMBANGAN": "JAKARTA",
-  "PENGEMBANGAN_01": "PENGEMBANGAN",
-  "PENGEMBANGAN_02": "PENGEMBANGAN",
-  "PENGEMBANGAN_03": "PENGEMBANGAN",
-  "PENGEMBANGAN_04": "PENGEMBANGAN"
+  "PENGEMBANGAN_01": "JAKARTA",
+  "PENGEMBANGAN_02": "JAKARTA",
+  "PENGEMBANGAN_03": "JAKARTA",
+  "PENGEMBANGAN_04": "JAKARTA"
 }
 ```
 

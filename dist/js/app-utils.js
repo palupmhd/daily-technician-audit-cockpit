@@ -35,7 +35,11 @@
   }
 
   function mkIcon(label,cls=''){
-    return L.divIcon({className:'',html:`<div class="marker-dot ${cls}">${esc(label)}</div>`,iconSize:[30,30],iconAnchor:[15,15],popupAnchor:[0,-15]});
+    let size=30;
+    if(String(cls).includes('mdanger'))size=38;
+    else if(String(cls).includes('mwarn'))size=34;
+    else if(String(cls).includes('mgps'))size=14;
+    return L.divIcon({className:'',html:`<div class="marker-dot ${cls}">${esc(label)}</div>`,iconSize:[size,size],iconAnchor:[size/2,size/2],popupAnchor:[0,-size/2]});
   }
 
   function bearing(lat1,lng1,lat2,lng2){

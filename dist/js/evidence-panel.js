@@ -60,7 +60,13 @@ function renderEvidence(route){
     const selIss=S.selectedIssueId?issueById(S.selectedIssueId):null;
 
     if(buckets.actionable.length){
-      const sorted=buckets.actionable.slice().sort((a,b)=>(SEV[b.severity]||0)-(SEV[a.severity]||0));
+      const sorted=buckets.actionable.slice().sort((a,b)=>{
+        if(S.selectedIssueId){
+          if(a.id===S.selectedIssueId)return -1;
+          if(b.id===S.selectedIssueId)return 1;
+        }
+        return (SEV[b.severity]||0)-(SEV[a.severity]||0);
+      });
       html+=`<div class="fi-bucket action">
         <div class="fi-bucket-header" data-bucket="action">
           <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
@@ -77,10 +83,10 @@ function renderEvidence(route){
               benchHtml=renderBenchBar(i.metrics.actualDurationMin,i.metrics.expectedMin,i.metrics.expectedMax);
             }
             const typeLabel=typeof issueTypeName==='function'?issueTypeName(i.type):i.type.replace(/_/g,' ');
-            return `<div class="fi-item ${i.severity}" data-issue-fi="${esc(i.id)}">
+            return `<div class="fi-item ${i.severity} ${i.id===S.selectedIssueId?'selected':''}" data-issue-fi="${esc(i.id)}">
               <div class="fi-type">
                 <span class="fi-type-text">${esc(typeLabel)}</span>
-                <span class="pill ${i.severity} fi-sev-pill">${esc(i.severity)}</span>
+                <span class="pill ${i.severity} fi-sev-pill">${esc(severityLabel(i.severity))}</span>
               </div>
               <div class="fi-msg">${esc(i.message)}</div>
               ${benchHtml}
@@ -102,7 +108,7 @@ function renderEvidence(route){
         </div>
         <div class="fi-bucket-body">
           ${buckets.dataIssues.map(i=>`<div class="fi-item ${i.severity}">
-            <div class="fi-type">${esc(i.type.replace(/_/g,' '))} <span class="pill ${i.severity}" style="font-size:9px;padding:1px 5px">${esc(i.severity)}</span></div>
+            <div class="fi-type">${esc(issueTypeName(i.type))} <span class="pill ${i.severity}" style="font-size:9px;padding:1px 5px">${esc(severityLabel(i.severity))}</span></div>
             <div class="fi-msg">${esc(i.message)}</div>
             ${i.recommendation?`<div class="fi-rec">→ ${esc(i.recommendation)}</div>`:''}
           </div>`).join('')}
@@ -119,7 +125,7 @@ function renderEvidence(route){
         </div>
         <div class="fi-bucket-body">
           ${buckets.other.map(i=>`<div class="fi-item ${i.severity}">
-            <div class="fi-type">${esc(i.type.replace(/_/g,' '))} <span class="pill ${i.severity}" style="font-size:9px;padding:1px 5px">${esc(i.severity)}</span></div>
+            <div class="fi-type">${esc(issueTypeName(i.type))} <span class="pill ${i.severity}" style="font-size:9px;padding:1px 5px">${esc(severityLabel(i.severity))}</span></div>
             <div class="fi-msg">${esc(i.message)}</div>
           </div>`).join('')}
         </div>
@@ -155,6 +161,10 @@ function renderEvidence(route){
         const badge=document.getElementById(`save-${id}`);
         if(badge){badge.textContent=SN.enabled?'Menyimpan...':'Tersimpan lokal';badge.classList.add('show');}
         const result=await setFu(id,{status});
+        if(result.missingAuditor){
+          if(badge)badge.classList.remove('show');
+          return;
+        }
         setFollowupEdit(id,false);
         setFollowupStatusOpen(id,false);
         if(badge){
@@ -192,6 +202,10 @@ function renderEvidence(route){
         const badge=document.getElementById(`save-${id}`);
         if(badge){badge.textContent=SN.enabled?'Menyimpan...':'Tersimpan lokal';badge.classList.add('show');}
         const result=await setFu(id,{note:el.value});
+        if(result.missingAuditor){
+          if(badge)badge.classList.remove('show');
+          return;
+        }
         setFollowupStatusOpen(id,true);
         const route=routeById(S.selectedRouteId);
         if(route)renderEvidence(route);
@@ -209,6 +223,10 @@ function renderEvidence(route){
         const badge=document.getElementById(`save-${id}`);
         if(badge){badge.textContent=SN.enabled?'Menyimpan...':'Tersimpan lokal';badge.style.color='var(--ok)';badge.classList.add('show');}
         const result=await setFu(id,{note:el.value});
+        if(result.missingAuditor){
+          if(badge)badge.classList.remove('show');
+          return;
+        }
         if(badge){
           badge.textContent=result.ok?(result.localOnly?'Tersimpan lokal':'Tersimpan'):'Gagal sync';
           badge.style.color=result.ok?'var(--ok)':'var(--danger)';
@@ -259,7 +277,7 @@ function renderTimeline(route){
         ${hasNotes?`<div class="tl-job-notes">📝 ${esc(j.notes)}</div>`:''}
       </div>`;
     }).join('');
-    const flagsH=vIss.map(i=>`<div class="tl-flag ${i.severity}">⚑ ${esc(i.type.replace(/_/g,' '))} — ${esc(i.message)}</div>`).join('');
+    const flagsH=vIss.map(i=>`<div class="tl-flag ${i.severity}">⚑ ${esc(issueTypeName(i.type))} — ${esc(i.message)}</div>`).join('');
     return{
       sort:v.startIso||'',
       visitId:v.visitId,
