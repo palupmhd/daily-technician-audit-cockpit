@@ -15,19 +15,19 @@
   function gpsPointStyle(statusInfo,plateColor,hover=false){
     if(statusInfo.key==='on'){
       return{
-        radius:hover?7:4.8,color:'#e0f2fe',weight:hover?2.6:1.8,opacity:1,
-        fillColor:plateColor,fillOpacity:hover ? .95 : .82
+        radius:hover?6.2:4.6,color:'#ffffff',weight:hover?2.4:1.7,opacity:hover ? 1 : .9,
+        fillColor:plateColor,fillOpacity:hover ? .94 : .82
       };
     }
     if(statusInfo.key==='off'){
       return{
-        radius:hover?6.2:4.2,color:'#94a3b8',weight:hover?2.4:1.6,opacity:hover ? .95 : .72,
-        fillColor:'#0f172a',fillOpacity:hover ? .72 : .28
+        radius:hover?6.4:4.8,color:plateColor,weight:hover?3:2.3,opacity:hover ? 1 : .86,
+        fillColor:'#ffffff',fillOpacity:hover ? .86 : .64
       };
     }
     return{
-      radius:hover?6.4:4.4,color:'#facc15',weight:hover?2.5:1.7,opacity:.9,
-      fillColor:'#facc15',fillOpacity:hover ? .82 : .5
+      radius:hover?6.2:4.6,color:'#b45309',weight:hover?2.6:1.9,opacity:hover ? 1 : .86,
+      fillColor:'#facc15',fillOpacity:hover ? .82 : .58
     };
   }
 
@@ -143,6 +143,25 @@
     const GPS_POINT_CHUNK=120;
     let gpsRendered=0;
     const pendingPointJobs=[];
+    const endpointMarkers=[];
+
+    function pointBucketKey(lat,lng,bucketPx=4){
+      const pt=S.map?.latLngToLayerPoint([lat,lng]);
+      return pt?`${Math.round(pt.x/bucketPx)},${Math.round(pt.y/bucketPx)}`:`${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`;
+    }
+
+    function radialOffset(idx,count,radius=5){
+      if(count<=1)return null;
+      if(count===2)return {x:idx===0?-radius:radius,y:0};
+      const angle=(-Math.PI/2)+(idx*2*Math.PI/count);
+      return {x:Math.round(Math.cos(angle)*radius),y:Math.round(Math.sin(angle)*radius)};
+    }
+
+    function offsetLatLng(lat,lng,offset){
+      if(!offset||!S.map)return [lat,lng];
+      const pt=S.map.latLngToLayerPoint([lat,lng]);
+      return S.map.layerPointToLatLng(L.point(pt.x+offset.x,pt.y+offset.y));
+    }
 
     vehicles.forEach((v,idx)=>{
       let raw=v.points||[];
@@ -189,9 +208,9 @@
               <span style="color:var(--muted)">Plat</span><span style="font-family:'DM Mono',monospace;font-weight:600">${esc(v.plate)}</span>
               <span style="color:var(--muted)">Mulai</span><span style="font-family:'DM Mono',monospace">${esc(tStart)}</span>
               <span style="color:var(--muted)">Selesai</span><span style="font-family:'DM Mono',monospace">${esc(tEnd)}</span>
-              <span style="color:var(--muted)">Jarak Tempuh</span><span style="color:#6ee7b7;font-weight:600">${totalKmStr}</span>
-              ${onDurMin!=null?`<span style="color:var(--muted)">Durasi Operasional</span><span style="color:#6ee7b7;font-weight:600">${fmtMin(onDurMin)}</span>`:''}
-              ${timeFilter==='after_route'?`<span style="color:var(--muted)">Filter</span><span style="color:#fcd34d">Setelah ${route.endTime}</span>`:''}
+              <span style="color:var(--muted)">Jarak Tempuh</span><span style="color:var(--success-text);font-weight:600">${totalKmStr}</span>
+              ${onDurMin!=null?`<span style="color:var(--muted)">Durasi Operasional</span><span style="color:var(--success-text);font-weight:600">${fmtMin(onDurMin)}</span>`:''}
+              ${timeFilter==='after_route'?`<span style="color:var(--muted)">Filter</span><span style="color:var(--warn-text)">Setelah ${route.endTime}</span>`:''}
             </div>
           </div>`,{maxWidth:240})
           .bindTooltip(`${esc(v.plate)} · ${totalKmStr}${onDurMin!=null?' · '+fmtMin(onDurMin):''}`,{direction:'top',sticky:true})
@@ -220,42 +239,108 @@
       [[firstPt,'mgps','▶','Berangkat'],[lastPt,'mgps mgps-end','■','Kembali']].forEach(([p,cls,lbl,label],pi)=>{
         if(!p||!Number.isFinite(p[1])||!Number.isFinite(p[2]))return;
         const statusInfo=gpsStatusInfo(p[3]);
-        const statusColor=statusInfo.key==='on'?'#6ee7b7':statusInfo.key==='off'?'#fca5a5':'#fcd34d';
+        const statusColor=statusInfo.key==='on'?'var(--success-text)':statusInfo.key==='off'?'var(--danger-text)':'var(--warn-text)';
         const statusLabel=statusInfo.label;
-        L.marker([p[1],p[2]],{icon:mkIcon(lbl,cls)})
+        endpointMarkers.push({p,cls,lbl,label,pi,statusColor,statusLabel,totalKmStr,opDurStr,v});
+      });
+    });
+
+    if(endpointMarkers.length){
+      const endpointGroups={};
+      endpointMarkers.forEach(item=>{
+        const pt=S.map?.latLngToLayerPoint([item.p[1],item.p[2]]);
+        const key=pt?`${Math.round(pt.x/6)},${Math.round(pt.y/6)}`:`${Number(item.p[1]).toFixed(5)},${Number(item.p[2]).toFixed(5)}`;
+        (endpointGroups[key]||(endpointGroups[key]=[])).push(item);
+      });
+      const endpointOffset=(idx,group)=>{
+        if(group.length<=1)return null;
+        if(group.length===2)return {x:idx===0?-6:6,y:0};
+        const radius=7;
+        const angle=(-Math.PI/2)+(idx*2*Math.PI/group.length);
+        return {x:Math.round(Math.cos(angle)*radius),y:Math.round(Math.sin(angle)*radius)};
+      };
+      Object.values(endpointGroups).forEach(group=>{
+        group.forEach((item,idx)=>{
+          const {p,cls,lbl,label,pi,statusColor,statusLabel,totalKmStr,opDurStr,v}=item;
+          L.marker([p[1],p[2]],{icon:mkIcon(lbl,cls,endpointOffset(idx,group)),zIndexOffset:160+idx})
           .bindPopup(`<div style="min-width:190px">
-            <div style="font-weight:700;font-size:12px;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid rgba(255,255,255,.08)">${label} · ${esc(v.plate)}</div>
+            <div style="font-weight:700;font-size:12px;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid var(--panel-line)">${label} · ${esc(v.plate)}</div>
             <div style="display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:11px">
               <span style="color:var(--muted)">Jam</span><span style="font-family:'DM Mono',monospace;font-weight:600">${esc(p[0]||'—')}</span>
               <span style="color:var(--muted)">Status</span><span style="color:${statusColor};font-weight:600">${statusLabel}</span>
-              ${pi===1?`<span style="color:var(--muted)">Jarak Tempuh</span><span style="color:#6ee7b7;font-weight:600">${totalKmStr}</span>`:''}
-              ${pi===1?`<span style="color:var(--muted)">Durasi Operasional</span><span style="color:#6ee7b7;font-weight:600">${opDurStr}</span>`:''}
+              ${pi===1?`<span style="color:var(--muted)">Jarak Tempuh</span><span style="color:var(--success-text);font-weight:600">${totalKmStr}</span>`:''}
+              ${pi===1?`<span style="color:var(--muted)">Durasi Operasional</span><span style="color:var(--success-text);font-weight:600">${opDurStr}</span>`:''}
             </div>
           </div>`,{maxWidth:260})
           .bindTooltip(`${lbl} ${esc(v.plate)} · ${esc(p[0]||'—')}`,{direction:'top',offset:[0,-12]})
           .addTo(S.layers.gps);
+        });
       });
-    });
+    }
 
     if(pendingPointJobs.length){
       (async()=>{
         for(const job of pendingPointJobs){
           if(isStale())return;
           const {v,color,raw}=job;
-          for(let i=0;i<raw.length;i+=GPS_POINT_CHUNK){
+          const pointGroups={};
+          raw.forEach((p,idx)=>{
+            if(!Number.isFinite(p[1])||!Number.isFinite(p[2]))return;
+            const key=pointBucketKey(p[1],p[2]);
+            (pointGroups[key]||(pointGroups[key]=[])).push({p,idx,statusInfo:gpsStatusInfo(p[3])});
+          });
+          const renderItems=Object.values(pointGroups).flatMap(group=>{
+            if(group.length<=4){
+              return group.map((item,idx)=>({...item,offset:radialOffset(idx,group.length),groupSize:group.length,aggregate:false}));
+            }
+            return [{aggregate:true,group,groupSize:group.length}];
+          });
+
+          for(let i=0;i<renderItems.length;i+=GPS_POINT_CHUNK){
             if(isStale())return;
-            const slice=raw.slice(i,i+GPS_POINT_CHUNK);
-            for(const p of slice){
-              if(!Number.isFinite(p[1])||!Number.isFinite(p[2]))continue;
-              const statusInfo=gpsStatusInfo(p[3]);
-              const marker=L.circleMarker([p[1],p[2]],{
+            const slice=renderItems.slice(i,i+GPS_POINT_CHUNK);
+            for(const item of slice){
+              if(item.aggregate){
+                const group=item.group;
+                const first=group[0]?.p;
+                if(!first)continue;
+                const counts=group.reduce((acc,it)=>{acc[it.statusInfo.key]=(acc[it.statusInfo.key]||0)+1;return acc;},{});
+                const statusBits=[
+                  counts.on?`${counts.on} ON`:null,
+                  counts.off?`${counts.off} OFF`:null,
+                  counts.unknown?`${counts.unknown} unknown`:null,
+                ].filter(Boolean).join(' · ');
+                const times=group.map(it=>it.p[0]).filter(Boolean);
+                const marker=L.circleMarker([first[1],first[2]],{
+                  radius:6.2,
+                  color,
+                  weight:2.6,
+                  opacity:.9,
+                  fillColor:'#ffffff',
+                  fillOpacity:.72,
+                  renderer:S.renderers.gps
+                });
+                marker
+                  .on('mouseover',()=>{marker.setStyle({radius:7.4,weight:3.2,fillOpacity:.86});marker.bringToFront();})
+                  .on('mouseout',()=>marker.setStyle({radius:6.2,weight:2.6,fillOpacity:.72}))
+                  .bindTooltip(
+                    `<strong>${esc(v.plate)}</strong><br>${group.length} titik di koordinat ini<br><span style="font-weight:700;color:${color}">${esc(statusBits||'Status tidak diketahui')}</span>${times.length?`<br><span style="color:var(--muted)">${esc(times[0])}${times.length>1?` - ${esc(times[times.length-1])}`:''}</span>`:''}<br><span style="font-family:monospace;font-size:10px">${Number(first[1]).toFixed(5)}, ${Number(first[2]).toFixed(5)}</span>`,
+                    {direction:'top',offset:[0,-4]}
+                  )
+                  .addTo(S.layers.gps);
+                continue;
+              }
+
+              const {p,statusInfo,offset,groupSize}=item;
+              const visual=offsetLatLng(p[1],p[2],offset);
+              const marker=L.circleMarker(visual,{
                 ...gpsPointStyle(statusInfo,color,false),renderer:S.renderers.gps
               });
               marker
               .on('mouseover',()=>{marker.setStyle(gpsPointStyle(statusInfo,color,true));marker.bringToFront();})
               .on('mouseout',()=>marker.setStyle(gpsPointStyle(statusInfo,color,false)))
               .bindTooltip(
-                `<strong>${esc(v.plate)}</strong><br>${esc(p[0]||'—')}<br><span style="font-weight:700;color:${statusInfo.key==='on'?color:statusInfo.key==='off'?'#cbd5e1':'#facc15'}">${esc(statusInfo.label)}</span>${statusInfo.raw&&statusInfo.raw!==statusInfo.label?`<br><span style="color:var(--muted)">Raw: ${esc(statusInfo.raw)}</span>`:''}<br><span style="font-family:monospace;font-size:10px">${Number(p[1]).toFixed(5)}, ${Number(p[2]).toFixed(5)}</span>`,
+                `<strong>${esc(v.plate)}</strong><br>${esc(p[0]||'—')}<br><span style="font-weight:700;color:${statusInfo.key==='on'?color:statusInfo.key==='off'?'var(--muted)':'#ca8a04'}">${esc(statusInfo.label)}</span><br><span style="font-family:monospace;font-size:10px">${Number(p[1]).toFixed(5)}, ${Number(p[2]).toFixed(5)}</span>`,
                 {direction:'top',offset:[0,-4]}
               )
               .addTo(S.layers.gps);
@@ -264,40 +349,6 @@
           }
         }
       })().catch(()=>{});
-    }
-
-    if(route){
-      const routeCoords=[
-        ...(route.visits||[]).filter(v=>v.showOnMap).map(v=>({lat:v.lat,lng:v.lng})),
-        ...(route.attendance||[]).filter(a=>a.isMappable).map(a=>({lat:a.lat,lng:a.lng}))
-      ].filter(c=>Number.isFinite(c.lat));
-
-      if(routeCoords.length){
-        vehicles.forEach((v,idx)=>{
-          const raw=v.points||[];
-          if(!raw.length)return;
-          const color=plateColor(v.plate,idx);
-          let bestDist=Infinity,bestPt=null;
-          raw.forEach(p=>{
-            if(!Number.isFinite(p[1])||!Number.isFinite(p[2]))return;
-            routeCoords.forEach(rc=>{
-              const d=haversineKm(p[1],p[2],rc.lat,rc.lng);
-              if(d<bestDist){bestDist=d;bestPt=p;}
-            });
-          });
-          if(bestPt&&bestDist<0.5){
-            L.marker([bestPt[1],bestPt[2]],{
-              icon:L.divIcon({
-                className:'',
-                html:`<div style="background:${color};color:#fff;font-size:9px;font-family:'DM Mono',monospace;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,.5);opacity:.9">${esc(v.plate)}</div>`,
-                iconAnchor:[0,-18],
-              }),
-              interactive:false,
-              zIndexOffset:200
-            }).addTo(S.layers.gps);
-          }
-        });
-      }
     }
 
     return gpsRendered;

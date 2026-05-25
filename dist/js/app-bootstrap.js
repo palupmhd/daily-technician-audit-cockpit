@@ -169,6 +169,27 @@ function zoneAllowedByAuditPic(zone){
   return zonesForActivePic([zone]).length>0;
 }
 
+function activeTheme(){
+  return document.documentElement.dataset.theme==='dark'?'dark':'light';
+}
+
+function setTheme(theme,{syncMap=true}={}){
+  const next=theme==='dark'?'dark':'light';
+  document.documentElement.dataset.theme=next;
+  try{localStorage.setItem('audit_theme',next);}catch{}
+  const isDark=next==='dark';
+  $('themeToggleLabel').textContent=isDark?'Dark':'Light';
+  $('themeIconSun').style.display=isDark?'none':'block';
+  $('themeIconMoon').style.display=isDark?'block':'none';
+  const style=isDark?'carto_dark':'carto_light';
+  $('mapStyleSelect').value=style;
+  document.querySelectorAll('[data-style]').forEach(e=>e.classList.toggle('on',e.dataset.style===style));
+  if(syncMap&&typeof setLayer==='function'){
+    $('mapStyleSelect').value=style;
+    setLayer(style);
+  }
+}
+
 function setAuditor(name){
   S.auditor=name||null;
   try{localStorage.setItem('audit_auditor_name',S.auditor||'');}catch{}
@@ -193,6 +214,7 @@ async function ensureAuditor(){
 }
 
 async function init(){
+  setTheme(activeTheme(),{syncMap:false});
   initMap();
   try{
     await ensureAuditor();
@@ -260,6 +282,10 @@ document.querySelectorAll('[data-style]').forEach(el=>{
     $('mapStyleSelect').value=style;
     setLayer(style);
   });
+});
+
+$('themeToggleBtn').addEventListener('click',()=>{
+  setTheme(activeTheme()==='dark'?'light':'dark');
 });
 
 /* tabs */
@@ -435,6 +461,8 @@ $('changeAuditorBtn').addEventListener('click',()=>{
   window.loadAuditPicZones=loadAuditPicZones;
   window.zonesForActivePic=zonesForActivePic;
   window.zoneAllowedByAuditPic=zoneAllowedByAuditPic;
+  window.activeTheme=activeTheme;
+  window.setTheme=setTheme;
   window.setAuditor=setAuditor;
   window.ensureAuditor=ensureAuditor;
   window.init=init;

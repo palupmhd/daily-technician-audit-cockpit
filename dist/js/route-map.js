@@ -14,7 +14,7 @@ function fitBounds(bounds){
 function initMap(){
   const el=$('map');
   S.map=L.map(el,{zoomControl:true,preferCanvas:true,zoomSnap:1,zoomDelta:1,updateWhenIdle:false,trackResize:true,renderer:L.canvas({padding:0.5})}).setView([-2.5,118],5);
-  setLayer('carto_dark');
+  setLayer(document.documentElement.dataset.theme==='dark'?'carto_dark':'carto_light');
   S.renderers={route:L.canvas({padding:0.5}),gps:L.canvas({padding:0.45})};
   S.layers.route=L.layerGroup().addTo(S.map);
   S.layers.gps=L.layerGroup().addTo(S.map);
@@ -39,7 +39,8 @@ function setLayer(style){
   const cfgs={
     osm_dark:{url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',opts:{maxZoom:19,keepBuffer:8,updateWhenIdle:false,updateWhenZooming:false,crossOrigin:true,className:'osm-dark-tile',attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'}},
     osm_soft:{url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',opts:{maxZoom:19,keepBuffer:8,updateWhenIdle:false,updateWhenZooming:false,crossOrigin:true,className:'osm-soft-tile',attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'}},
-    carto_dark:{url:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',opts:{subdomains:'abcd',maxZoom:20,keepBuffer:8,updateWhenIdle:false,updateWhenZooming:false,crossOrigin:true,attribution:'&copy; CARTO'}}
+    carto_dark:{url:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',opts:{subdomains:'abcd',maxZoom:20,keepBuffer:8,updateWhenIdle:false,updateWhenZooming:false,crossOrigin:true,attribution:'&copy; CARTO'}},
+    carto_light:{url:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',opts:{subdomains:'abcd',maxZoom:20,keepBuffer:8,updateWhenIdle:false,updateWhenZooming:false,crossOrigin:true,attribution:'&copy; CARTO'}}
   };
   const cfg=cfgs[style]||cfgs.osm_dark;
   S.baseLayer=L.tileLayer(cfg.url,cfg.opts).addTo(S.map);
@@ -138,8 +139,8 @@ function renderMap(route=null,{gpsOnly=false}={}){
       const lbl=v.type==='branch_task'?'M':String(v.seq);
       const vIss=visitIss(route,v.visitId);
       const actionIss=vIss.filter(i=>!NOISE_TYPES.has(i.type));
-      const sevColor=sev==='high'?'#fca5a5':sev==='medium'?'#fcd34d':sev==='low'?'#7dd3fc':'#34d399';
-      const matchDot=v.matchStatus==='matched_by_name'||v.matchStatus==='matched'?'<span style="color:#34d399">✓</span>':'<span style="color:#fca5a5">✗</span>';
+      const sevColor=sev==='high'?'var(--danger-text)':sev==='medium'?'var(--warn-text)':sev==='low'?'var(--info-text)':'var(--success-text)';
+      const matchDot=v.matchStatus==='matched_by_name'||v.matchStatus==='matched'?'<span style="color:var(--success-text)">✓</span>':'<span style="color:var(--danger-text)">✗</span>';
       const dp=distLookup[v.visitId];
 
       const jobsHtml=(v.jobs||[]).map(j=>{
@@ -149,13 +150,13 @@ function renderMap(route=null,{gpsOnly=false}={}){
         let benchHtml='';
         if(actual!=null&&b.expectedMin!=null){
           const under=actual<b.expectedMin,over=actual>b.expectedMax;
-          const bColor=under?'#7dd3fc':over?'#fcd34d':'#34d399';
+          const bColor=under?'var(--info-text)':over?'var(--warn-text)':'var(--success-text)';
           benchHtml=`<div style="margin-top:3px;font-size:10px;color:${bColor}">${under?'▼ Terlalu cepat':over?'▲ Melebihi benchmark':'✓ Dalam benchmark'}: ${fmtMin(actual)} vs ${fmtMin(b.expectedMin)}–${fmtMin(b.expectedMax)}</div>`;
         }
         const notesHtml=j.notes&&j.notes!=='-'?`<div style="margin-top:3px;font-size:10px;color:var(--muted);font-style:italic">"${esc(j.notes.slice(0,80))}${j.notes.length>80?'…':''}"</div>`:'';
-        const probHtml=j.problemNotes&&j.problemNotes!=='-'?`<div style="margin-top:3px;font-size:10px;color:#fcd34d">⚠ ${esc(j.problemNotes.slice(0,80))}</div>`:'';
-        return `<div style="background:rgba(255,255,255,.05);border-radius:6px;padding:5px 7px;margin-top:5px">
-          <div style="font-weight:600;font-size:11px">${esc(j.jobType)}${j.unitQty?` <span style="color:var(--muted)">×${j.unitQty}</span>`:''} <span style="float:right;color:${j.status==='done'?'#34d399':'#fcd34d'}">${j.status==='done'?'Selesai':'Ditunda'}</span></div>
+        const probHtml=j.problemNotes&&j.problemNotes!=='-'?`<div style="margin-top:3px;font-size:10px;color:var(--warn-text)">⚠ ${esc(j.problemNotes.slice(0,80))}</div>`:'';
+        return `<div style="background:var(--inline-card-bg);border-radius:6px;padding:5px 7px;margin-top:5px">
+          <div style="font-weight:600;font-size:11px">${esc(j.jobType)}${j.unitQty?` <span style="color:var(--muted)">×${j.unitQty}</span>`:''} <span style="float:right;color:${j.status==='done'?'var(--success-text)':'var(--warn-text)'}">${j.status==='done'?'Selesai':'Ditunda'}</span></div>
           <div style="font-size:10px;color:var(--muted);margin-top:1px">Aktual ${fmtMin(actual)}${lunch}</div>
           ${benchHtml}${notesHtml}${probHtml}
         </div>`;
@@ -167,13 +168,13 @@ function renderMap(route=null,{gpsOnly=false}={}){
         </div>`).join('');
 
       const distHtml=dp?.distanceKm!=null
-        ?`<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:var(--muted)">
+        ?`<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--panel-line);font-size:10px;color:var(--muted)">
             📍 Dari titik sebelumnya: <strong style="color:var(--text)">${dp.distanceKm} km</strong>${dp.durationMin!=null?` · ${fmtMin(dp.durationMin)}`:''}
           </div>`:'';
 
       const popupContent=`<div style="min-width:220px;max-width:280px">
         <div style="font-weight:700;font-size:12.5px;margin-bottom:2px">${esc(v.seq)}. ${esc(v.locationName)}</div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.08)">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--panel-line)">
           ${esc(v.type.replace(/_/g,' '))} ${matchDot} ${esc(v.matchStatus||'')}
         </div>
         <div style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:11px;margin-bottom:4px">
@@ -183,7 +184,7 @@ function renderMap(route=null,{gpsOnly=false}={}){
           ${v.lat?`<span style="color:var(--muted)">Koordinat</span><span style="font-family:'DM Mono',monospace;font-size:10px">${v.lat.toFixed(5)}, ${v.lng.toFixed(5)}</span>`:''}
         </div>
         ${jobsHtml}${issHtml}
-        ${actionIss.length?'':'<div style="margin-top:6px;font-size:10px;color:#34d399">✓ Tidak ada issue</div>'}
+        ${actionIss.length?'':'<div style="margin-top:6px;font-size:10px;color:var(--success-text)">✓ Tidak ada issue</div>'}
         ${distHtml}
       </div>`;
 
@@ -201,27 +202,40 @@ function renderMap(route=null,{gpsOnly=false}={}){
     });
 
     // Helper: render one polyline segment with arrow + distance label
+    function labelSize(text){
+      const width=Math.max(68,Math.min(190,(String(text).length*5.8)+26));
+      return [width,22];
+    }
+
     function renderSegment(latA,lngA,latB,lngB,color,weight,opacity,dash,distKm,durMin,gapIssue){
       L.polyline([[latA,lngA],[latB,lngB]],{color,weight,opacity,dashArray:dash,renderer:S.renderers.route})
         .addTo(S.layers.route);
       if(gapIssue){
         const m=gapIssue.metrics||{};
         const mLat=(latA+latB)/2,mLng=(lngA+lngB)/2;
+        const distTxt=distKm!=null
+          ?(distKm>=1?`${distKm} km`:`${Math.round(distKm*1000)} m`)
+          :'';
+        const labelText=`${distTxt ? `${distTxt} · ` : ''}Gap ${fmtMin(m.effectiveGapMin??m.actualGapMin)} / est ${fmtMin(m.expectedTravelMin)}`.trim();
+        const size=labelSize(labelText);
         L.marker([mLat,mLng],{icon:L.divIcon({
           className:'',
-          html:`<div style="background:rgba(127,29,29,.94);border:1px solid rgba(248,113,113,.8);border-radius:6px;padding:5px 8px;font-size:10px;font-weight:800;color:#fee2e2;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.45);pointer-events:none;line-height:1.25">Gap ${fmtMin(m.effectiveGapMin??m.actualGapMin)}<span style="color:#fecaca;font-weight:600"> vs est ${fmtMin(m.expectedTravelMin)}</span></div>`,
-          iconAnchor:[0,-8],
+          html:`<div class="route-label gap">${labelText}</div>`,
+          iconSize:size,
+          iconAnchor:[size[0]/2,size[1]+6],
         }),interactive:false,zIndexOffset:240}).addTo(S.layers.route);
       }
       // Distance label — only when toggle on AND distance ≥ 100m
-      if(S.layerToggles.distance&&distKm!=null&&distKm>=0.1){
+      if(!gapIssue&&S.layerToggles.distance&&distKm!=null&&distKm>=0.1){
         const mLat=(latA+latB)/2,mLng=(lngA+lngB)/2;
         const distTxt=distKm>=1?`${distKm} km`:`${Math.round(distKm*1000)} m`;
-        const durTxt=durMin!=null?`<div style="font-size:9px;color:${gapIssue?color:'#64748b'};margin-top:1px">${fmtMin(durMin)}${gapIssue?' ⚠':''}</div>`:'';
+        const labelText=`${distTxt}${durMin!=null?` · ${fmtMin(durMin)}`:''}`;
+        const size=labelSize(labelText);
         L.marker([mLat,mLng],{icon:L.divIcon({
           className:'',
-          html:`<div style="background:rgba(13,17,23,.88);border-radius:4px;padding:2px 6px;font-size:10px;font-family:'DM Mono',monospace;font-weight:600;color:${gapIssue?color:'#94a3b8'};white-space:nowrap;pointer-events:none;line-height:1.3">${distTxt}${durTxt}</div>`,
-          iconAnchor:[0,0],
+          html:`<div class="route-label">${distTxt}${durMin!=null?`<span class="route-label-time">${fmtMin(durMin)}</span>`:''}</div>`,
+          iconSize:size,
+          iconAnchor:[size[0]/2,size[1]/2],
         }),interactive:false,zIndexOffset:-100}).addTo(S.layers.route);
       }
     }
@@ -240,11 +254,13 @@ function renderMap(route=null,{gpsOnly=false}={}){
           if(S.layerToggles.distance&&dp0?.distanceKm!=null&&dp0.distanceKm>=0.1){
             const mLat=(a.lat+firstVisit.lat)/2, mLng=(a.lng+firstVisit.lng)/2;
             const distTxt=dp0.distanceKm>=1?`${dp0.distanceKm} km`:`${Math.round(dp0.distanceKm*1000)} m`;
-            const durTxt=dp0.durationMin!=null?`<div style="font-size:9px;color:#4ade80;margin-top:1px">${fmtMin(dp0.durationMin)}</div>`:'';
+            const labelText=`${distTxt}${dp0.durationMin!=null?` · ${fmtMin(dp0.durationMin)}`:''}`;
+            const size=labelSize(labelText);
             L.marker([mLat,mLng],{icon:L.divIcon({
               className:'',
-              html:`<div style="background:rgba(13,17,23,.88);border-radius:4px;padding:2px 6px;font-size:10px;font-family:'DM Mono',monospace;font-weight:600;color:#6ee7b7;white-space:nowrap;pointer-events:none;line-height:1.3">${distTxt}${durTxt}</div>`,
-              iconAnchor:[0,0],
+              html:`<div class="route-label att">${distTxt}${dp0.durationMin!=null?`<span class="route-label-time">${fmtMin(dp0.durationMin)}</span>`:''}</div>`,
+              iconSize:size,
+              iconAnchor:[size[0]/2,size[1]/2],
             }),interactive:false,zIndexOffset:-100}).addTo(S.layers.route);
           }
         });
@@ -265,111 +281,44 @@ function renderMap(route=null,{gpsOnly=false}={}){
       }
     }
 
-    // Proximity cluster: att + visit markers within 60m → single group marker
-    const CLUSTER_RADIUS_M=60;
-    const haversineM=(la1,lo1,la2,lo2)=>{
-      const R=6371000,dlat=(la2-la1)*Math.PI/180,dlon=(lo2-lo1)*Math.PI/180;
-      const a=Math.sin(dlat/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dlon/2)**2;
-      return R*2*Math.asin(Math.sqrt(a));
-    };
-
-    const usedAtt=new Set();
-    const usedVisits=new Set();
-
+    // Attendance markers stay independent. Clustering only applies to store/location markers.
     if(S.layerToggles.att){
-      const attMarkers=(route.attendance||[]).filter(a=>a.isMappable);
-      attMarkers.forEach((a,ai)=>{
-        const nearby=mappable.filter(v=>!usedVisits.has(v.visitId)&&haversineM(a.lat,a.lng,v.lat,v.lng)<CLUSTER_RADIUS_M);
-        if(nearby.length>0){
-          usedAtt.add(ai);
-          nearby.forEach(v=>usedVisits.add(v.visitId));
-          // Group marker at visit position
-          const items=[
-            {icon:'▶',color:'#10b981',label:`Absen ${a.type==='in'?'Masuk':'Pulang'} — ${esc(a.employee)}`,sub:esc(a.time),onClick:null},
-            ...nearby.map(v=>{
-              const vSev=visitSev(route,v.visitId);
-              const sevColor=vSev==='high'?'#fca5a5':vSev==='medium'?'#fcd34d':'#94a3b8';
-              return{icon:String(v.seq),color:vSev==='high'?'#ef4444':vSev==='medium'?'#f59e0b':'#3b82f6',label:`${esc(v.seq)}. ${esc(v.locationName)}`,sub:`${esc(v.startTime)}–${esc(v.endTime)}`,sevColor,visitId:v.visitId,onClick:()=>scrollVisit(v.visitId)};
-            })
-          ];
-          const listHtml=items.map(it=>`
-            <div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06);cursor:${it.onClick?'pointer':'default'}" ${it.onClick?`data-visit-scroll="${it.visitId||''}"`:''}>
-              <div style="width:22px;height:22px;border-radius:50%;background:${it.color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;color:white">${it.icon}</div>
-              <div>
-                <div style="font-size:11px;font-weight:600;color:${it.sevColor||'var(--text)'}">${it.label}</div>
-                <div style="font-size:10px;color:var(--muted)">${it.sub}</div>
-              </div>
-            </div>`).join('');
-          const groupPopup=`<div style="min-width:220px;max-width:260px">
-            <div style="font-weight:700;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${items.length} titik di lokasi ini</div>
-            ${listHtml}
-          </div>`;
-          const groupIcon=L.divIcon({
-            className:'',
-            html:`<div style="width:34px;height:34px;border-radius:50%;background:rgba(16,185,129,.2);border:2px solid #10b981;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#6ee7b7;box-shadow:0 0 10px rgba(16,185,129,.4)">${items.length}</div>`,
-            iconSize:[34,34],iconAnchor:[17,17],
-          });
-          const gm=L.marker([nearby[0].lat,nearby[0].lng],{icon:groupIcon,zIndexOffset:100});
-          gm.bindPopup(groupPopup,{maxWidth:280});
-          gm.on('popupopen',()=>{
-            document.querySelectorAll('[data-visit-scroll]').forEach(el=>{
-              if(el.dataset.visitScroll)el.addEventListener('click',()=>scrollVisit(el.dataset.visitScroll));
-            });
-          });
-          if(useCluster)S.clusterGroup.addLayer(gm);
-          else gm.addTo(S.layers.route);
-          bounds.push([nearby[0].lat,nearby[0].lng]);
-        }
+      const attPoints=(route.attendance||[]).filter(a=>a.isMappable);
+      const attGroups={};
+      attPoints.forEach(a=>{
+        const pt=S.map?.latLngToLayerPoint([a.lat,a.lng]);
+        const key=pt?`${Math.round(pt.x/6)},${Math.round(pt.y/6)}`:`${Number(a.lat).toFixed(5)},${Number(a.lng).toFixed(5)}`;
+        (attGroups[key]||(attGroups[key]=[])).push(a);
       });
-
-      // Render remaining att markers (not clustered)
-      (route.attendance||[]).filter(a=>a.isMappable).forEach((a,ai)=>{
-        if(usedAtt.has(ai))return;
+      const attOffset=(a,idx,group)=>{
+        if(group.length<=1)return null;
+        if(group.length===2)return {x:idx===0?-6:6,y:0};
+        const radius=7;
+        const angle=(-Math.PI/2)+(idx*2*Math.PI/group.length);
+        return {x:Math.round(Math.cos(angle)*radius),y:Math.round(Math.sin(angle)*radius)};
+      };
+      Object.values(attGroups).forEach(group=>{
+        group
+          .slice()
+          .sort((a,b)=>String(a.type).localeCompare(String(b.type))||String(a.time).localeCompare(String(b.time)))
+          .forEach((a,idx)=>{
         const cls=a.type==='in'?'matt-in':'matt-out';
         const lbl=a.type==='in'?'▶':'■';
         const pop=`<div style="min-width:180px">
-          <div style="font-weight:700;font-size:12px;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid rgba(255,255,255,.1)">${a.type==='in'?'▶ Absen Masuk':'■ Absen Pulang'}</div>
+          <div style="font-weight:700;font-size:12px;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid var(--panel-line)">${a.type==='in'?'▶ Absen Masuk':'■ Absen Pulang'}</div>
           <div style="display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:11px">
             <span style="color:var(--muted)">Nama</span><span>${esc(a.employee)}</span>
             <span style="color:var(--muted)">Jam</span><span style="font-family:'DM Mono',monospace;font-weight:600">${esc(a.time)}</span>
             <span style="color:var(--muted)">Koordinat</span><span style="font-family:'DM Mono',monospace;font-size:10px">${a.lat?.toFixed(5)}, ${a.lng?.toFixed(5)}</span>
           </div>
         </div>`;
-        L.marker([a.lat,a.lng],{icon:mkIcon(lbl,cls)})
+        L.marker([a.lat,a.lng],{icon:mkIcon(lbl,cls,attOffset(a,idx,group)),zIndexOffset:120+idx})
           .bindPopup(pop,{maxWidth:260})
           .bindTooltip(`${a.type==='in'?'Masuk':'Pulang'} ${esc(a.employee)} ${esc(a.time)}`,{direction:'top',offset:[0,-12]})
           .addTo(S.layers.att);
         bounds.push([a.lat,a.lng]);
+          });
       });
-
-      // Render visit markers not captured by cluster
-      mappable.forEach(v=>{
-        if(usedVisits.has(v.visitId))return;
-        // Already rendered above in main loop — skip (already added to cluster/route layer)
-      });
-    } else {
-      // att off — render all att-adjacent visits normally (they were already added)
-    }
-
-    // Nearest plate label — show plate name near first visit if any GPS track passes within 500m
-    if(S.gpsData&&routePts.length){
-      const vehicles2=(S.gpsData?.gpsLayer?.vehicles||[]).filter(v=>!S.gpsPlateDisabled.has(v.plate));
-      const refPt=routePts[0]; // first visit as reference
-      let bestDist=500, bestPlate=null, bestLat=refPt.lat, bestLng=refPt.lng;
-      vehicles2.forEach(v=>{
-        (v.points||[]).forEach(p=>{
-          if(!Number.isFinite(p[1])||!Number.isFinite(p[2]))return;
-          const d=haversineKm(refPt.lat,refPt.lng,p[1],p[2])*1000; // meters
-          if(d<bestDist){bestDist=d;bestPlate=v.plate;bestLat=p[1];bestLng=p[2];}
-        });
-      });
-      if(bestPlate){
-        L.marker([bestLat,bestLng],{icon:L.divIcon({
-          className:'',
-          html:`<div style="background:rgba(13,17,23,.88);border:1px solid rgba(56,189,248,.4);border-radius:4px;padding:2px 7px;font-size:10px;font-family:'DM Mono',monospace;font-weight:600;color:#38bdf8;white-space:nowrap;pointer-events:none">${esc(bestPlate)}</div>`,
-          iconAnchor:[0,-18],
-        }),interactive:false,zIndexOffset:-80}).addTo(S.layers.route);
-      }
     }
 
   }
