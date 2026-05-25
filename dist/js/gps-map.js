@@ -15,19 +15,19 @@
   function gpsPointStyle(statusInfo,plateColor,hover=false){
     if(statusInfo.key==='on'){
       return{
-        radius:hover?6.2:4.6,color:'#ffffff',weight:hover?2.4:1.7,opacity:hover ? 1 : .9,
-        fillColor:plateColor,fillOpacity:hover ? .94 : .82
+        radius:hover?5.8:4.5,color:'#ffffff',weight:hover?2.2:1.6,opacity:hover ? 1 : .92,
+        fillColor:plateColor,fillOpacity:hover ? .94 : .84
       };
     }
     if(statusInfo.key==='off'){
       return{
-        radius:hover?6.4:4.8,color:plateColor,weight:hover?3:2.3,opacity:hover ? 1 : .86,
-        fillColor:'#ffffff',fillOpacity:hover ? .86 : .64
+        radius:hover?6:4.7,color:plateColor,weight:hover?2.8:2.2,opacity:hover ? 1 : .9,
+        fillColor:'#ffffff',fillOpacity:hover ? .88 : .72
       };
     }
     return{
-      radius:hover?6.2:4.6,color:'#b45309',weight:hover?2.6:1.9,opacity:hover ? 1 : .86,
-      fillColor:'#facc15',fillOpacity:hover ? .82 : .58
+      radius:hover?5.8:4.5,color:'#ffffff',weight:hover?2.3:1.7,opacity:hover ? 1 : .9,
+      fillColor:'#ffcc00',fillOpacity:hover ? .88 : .68
     };
   }
 
@@ -144,13 +144,12 @@
     let gpsRendered=0;
     const pendingPointJobs=[];
     const endpointMarkers=[];
-
-    function pointBucketKey(lat,lng,bucketPx=4){
+    function pointBucketKey(lat,lng,bucketPx=2){
       const pt=S.map?.latLngToLayerPoint([lat,lng]);
       return pt?`${Math.round(pt.x/bucketPx)},${Math.round(pt.y/bucketPx)}`:`${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`;
     }
 
-    function radialOffset(idx,count,radius=5){
+    function radialOffset(idx,count,radius=3){
       if(count<=1)return null;
       if(count===2)return {x:idx===0?-radius:radius,y:0};
       const angle=(-Math.PI/2)+(idx*2*Math.PI/count);
@@ -254,8 +253,10 @@
       });
       const endpointOffset=(idx,group)=>{
         if(group.length<=1)return null;
-        if(group.length===2)return {x:idx===0?-6:6,y:0};
-        const radius=7;
+        const hiZoom=(S.map?.getZoom()||0)>=17;
+        const pair=hiZoom?3:4;
+        if(group.length===2)return {x:idx===0?-pair:pair,y:0};
+        const radius=hiZoom?3:4;
         const angle=(-Math.PI/2)+(idx*2*Math.PI/group.length);
         return {x:Math.round(Math.cos(angle)*radius),y:Math.round(Math.sin(angle)*radius)};
       };

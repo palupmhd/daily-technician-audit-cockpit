@@ -1,7 +1,10 @@
 {
-  "generatedAt": "2026-05-25T08:49:33",
+  "generatedAt": "2026-05-25T13:13:34",
   "availableDates": [
-    "2026-05-11"
+    "2026-05-23",
+    "2026-05-22",
+    "2026-05-21",
+    "2026-05-20"
   ],
   "zones": [
     "BALI",
@@ -10,6 +13,7 @@
     "BENGKULU",
     "GORONTALO",
     "JAKARTA_01",
+    "JAKARTA_02",
     "JAKARTA_03",
     "JAKARTA_PROJECT",
     "JEMBER",
@@ -29,45 +33,102 @@
     "YOGYAKARTA"
   ],
   "files": {
-    "2026-05-11": {
-      "index": "data/2026/05/2026-05-11.index.json",
+    "2026-05-20": {
+      "index": "data/2026/05/2026-05-20.index.json",
       "zones": {
-        "MEDAN": "data/2026/05/2026-05-11.MEDAN.json",
-        "SURABAYA": "data/2026/05/2026-05-11.SURABAYA.json",
-        "BALI": "data/2026/05/2026-05-11.BALI.json",
-        "JEMBER": "data/2026/05/2026-05-11.JEMBER.json",
-        "PENGEMBANGAN_03": "data/2026/05/2026-05-11.PENGEMBANGAN_03.json",
-        "GORONTALO": "data/2026/05/2026-05-11.GORONTALO.json",
-        "BATAM": "data/2026/05/2026-05-11.BATAM.json",
-        "SINGKAWANG": "data/2026/05/2026-05-11.SINGKAWANG.json",
-        "PONTIANAK": "data/2026/05/2026-05-11.PONTIANAK.json",
-        "PURWOKERTO": "data/2026/05/2026-05-11.PURWOKERTO.json",
-        "MANADO": "data/2026/05/2026-05-11.MANADO.json",
-        "BENGKULU": "data/2026/05/2026-05-11.BENGKULU.json",
-        "YOGYAKARTA": "data/2026/05/2026-05-11.YOGYAKARTA.json",
-        "PENGEMBANGAN_04": "data/2026/05/2026-05-11.PENGEMBANGAN_04.json",
-        "BEKASI": "data/2026/05/2026-05-11.BEKASI.json",
-        "JAKARTA_03": "data/2026/05/2026-05-11.JAKARTA_03.json",
-        "PENGEMBANGAN_02": "data/2026/05/2026-05-11.PENGEMBANGAN_02.json",
-        "PENGEMBANGAN_01": "data/2026/05/2026-05-11.PENGEMBANGAN_01.json",
-        "NON_SEWA": "data/2026/05/2026-05-11.NON_SEWA.json",
-        "SORONG": "data/2026/05/2026-05-11.SORONG.json",
-        "PENGEMBANGAN": "data/2026/05/2026-05-11.PENGEMBANGAN.json",
-        "JAKARTA_PROJECT": "data/2026/05/2026-05-11.JAKARTA_PROJECT.json",
-        "JAKARTA_01": "data/2026/05/2026-05-11.JAKARTA_01.json"
+        "YOGYAKARTA": "data/2026/05/2026-05-20.YOGYAKARTA.json"
+      }
+    },
+    "2026-05-21": {
+      "index": "data/2026/05/2026-05-21.index.json",
+      "zones": {
+        "PONTIANAK": "data/2026/05/2026-05-21.PONTIANAK.json",
+        "BENGKULU": "data/2026/05/2026-05-21.BENGKULU.json",
+        "SURABAYA": "data/2026/05/2026-05-21.SURABAYA.json",
+        "MEDAN": "data/2026/05/2026-05-21.MEDAN.json",
+        "BEKASI": "data/2026/05/2026-05-21.BEKASI.json",
+        "BALI": "data/2026/05/2026-05-21.BALI.json",
+        "SINGKAWANG": "data/2026/05/2026-05-21.SINGKAWANG.json",
+        "BATAM": "data/2026/05/2026-05-21.BATAM.json",
+        "YOGYAKARTA": "data/2026/05/2026-05-21.YOGYAKARTA.json",
+        "PENGEMBANGAN_01": "data/2026/05/2026-05-21.PENGEMBANGAN_01.json",
+        "PENGEMBANGAN_02": "data/2026/05/2026-05-21.PENGEMBANGAN_02.json",
+        "MANADO": "data/2026/05/2026-05-21.MANADO.json",
+        "PENGEMBANGAN_04": "data/2026/05/2026-05-21.PENGEMBANGAN_04.json",
+        "GORONTALO": "data/2026/05/2026-05-21.GORONTALO.json",
+        "PENGEMBANGAN_03": "data/2026/05/2026-05-21.PENGEMBANGAN_03.json",
+        "PURWOKERTO": "data/2026/05/2026-05-21.PURWOKERTO.json",
+        "SORONG": "data/2026/05/2026-05-21.SORONG.json",
+        "JEMBER": "data/2026/05/2026-05-21.JEMBER.json",
+        "JAKARTA_03": "data/2026/05/2026-05-21.JAKARTA_03.json",
+        "PENGEMBANGAN": "data/2026/05/2026-05-21.PENGEMBANGAN.json",
+        "NON_SEWA": "data/2026/05/2026-05-21.NON_SEWA.json",
+        "JAKARTA_PROJECT": "data/2026/05/2026-05-21.JAKARTA_PROJECT.json"
+      }
+    },
+    "2026-05-22": {
+      "index": "data/2026/05/2026-05-22.index.json",
+      "zones": {
+        "BALI": "data/2026/05/2026-05-22.BALI.json",
+        "MEDAN": "data/2026/05/2026-05-22.MEDAN.json",
+        "YOGYAKARTA": "data/2026/05/2026-05-22.YOGYAKARTA.json",
+        "GORONTALO": "data/2026/05/2026-05-22.GORONTALO.json",
+        "BATAM": "data/2026/05/2026-05-22.BATAM.json",
+        "JAKARTA_02": "data/2026/05/2026-05-22.JAKARTA_02.json",
+        "BENGKULU": "data/2026/05/2026-05-22.BENGKULU.json",
+        "SURABAYA": "data/2026/05/2026-05-22.SURABAYA.json",
+        "JAKARTA_01": "data/2026/05/2026-05-22.JAKARTA_01.json",
+        "PONTIANAK": "data/2026/05/2026-05-22.PONTIANAK.json",
+        "PURWOKERTO": "data/2026/05/2026-05-22.PURWOKERTO.json",
+        "BEKASI": "data/2026/05/2026-05-22.BEKASI.json",
+        "JAKARTA_PROJECT": "data/2026/05/2026-05-22.JAKARTA_PROJECT.json",
+        "PENGEMBANGAN_04": "data/2026/05/2026-05-22.PENGEMBANGAN_04.json",
+        "SINGKAWANG": "data/2026/05/2026-05-22.SINGKAWANG.json",
+        "PENGEMBANGAN_03": "data/2026/05/2026-05-22.PENGEMBANGAN_03.json",
+        "MANADO": "data/2026/05/2026-05-22.MANADO.json",
+        "PENGEMBANGAN_01": "data/2026/05/2026-05-22.PENGEMBANGAN_01.json",
+        "SORONG": "data/2026/05/2026-05-22.SORONG.json",
+        "JEMBER": "data/2026/05/2026-05-22.JEMBER.json",
+        "JAKARTA_03": "data/2026/05/2026-05-22.JAKARTA_03.json",
+        "PENGEMBANGAN_02": "data/2026/05/2026-05-22.PENGEMBANGAN_02.json",
+        "PENGEMBANGAN": "data/2026/05/2026-05-22.PENGEMBANGAN.json"
+      }
+    },
+    "2026-05-23": {
+      "index": "data/2026/05/2026-05-23.index.json",
+      "zones": {
+        "GORONTALO": "data/2026/05/2026-05-23.GORONTALO.json",
+        "YOGYAKARTA": "data/2026/05/2026-05-23.YOGYAKARTA.json",
+        "BALI": "data/2026/05/2026-05-23.BALI.json",
+        "SINGKAWANG": "data/2026/05/2026-05-23.SINGKAWANG.json",
+        "SURABAYA": "data/2026/05/2026-05-23.SURABAYA.json",
+        "MEDAN": "data/2026/05/2026-05-23.MEDAN.json",
+        "BATAM": "data/2026/05/2026-05-23.BATAM.json",
+        "BEKASI": "data/2026/05/2026-05-23.BEKASI.json",
+        "PENGEMBANGAN_02": "data/2026/05/2026-05-23.PENGEMBANGAN_02.json",
+        "PONTIANAK": "data/2026/05/2026-05-23.PONTIANAK.json",
+        "JEMBER": "data/2026/05/2026-05-23.JEMBER.json",
+        "PENGEMBANGAN": "data/2026/05/2026-05-23.PENGEMBANGAN.json",
+        "PURWOKERTO": "data/2026/05/2026-05-23.PURWOKERTO.json",
+        "BENGKULU": "data/2026/05/2026-05-23.BENGKULU.json",
+        "SORONG": "data/2026/05/2026-05-23.SORONG.json",
+        "MANADO": "data/2026/05/2026-05-23.MANADO.json",
+        "PENGEMBANGAN_03": "data/2026/05/2026-05-23.PENGEMBANGAN_03.json",
+        "JAKARTA_PROJECT": "data/2026/05/2026-05-23.JAKARTA_PROJECT.json",
+        "JAKARTA_01": "data/2026/05/2026-05-23.JAKARTA_01.json"
       }
     }
   },
   "stats": {
-    "task_rows": 446,
-    "sn_task_rows": 221,
-    "jobs": 221,
-    "visits": 213,
-    "routes": 71,
-    "issues": 51,
-    "gps_points": 1124,
-    "attendance_points": 390,
-    "pending_distance_pairs": 2
+    "task_rows": 1430,
+    "sn_task_rows": 630,
+    "jobs": 630,
+    "visits": 600,
+    "routes": 212,
+    "issues": 197,
+    "gps_points": 3605,
+    "attendance_points": 1192,
+    "pending_distance_pairs": 3
   },
   "notes": "Load manifest first, then date index, then date+zone detail. GPS is zone-level vehicle evidence, not team assignment."
 }

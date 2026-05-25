@@ -42,8 +42,8 @@ function renderEvidence(route){
   const med=actionable.filter(i=>i.severity==='medium').length;
   $('kpiSection').style.display='block';
   $('routeKpis').innerHTML=`
-    <div class="kpi ${hi?'kdanger':''}"><div class="n">${hi}</div><div class="l">High</div></div>
-    <div class="kpi ${med?'kwarn':''}"><div class="n">${med}</div><div class="l">Medium</div></div>
+    <div class="kpi ${hi?'kdanger':''}"><div class="n">${hi}</div><div class="l">Tinggi</div></div>
+    <div class="kpi ${med?'kwarn':''}"><div class="n">${med}</div><div class="l">Sedang</div></div>
     <div class="kpi"><div class="n">${route.visitCount}</div><div class="l">Lokasi</div></div>
     <div class="kpi kok"><div class="n" title="${route.doneCount||0} dari ${route.visitCount} lokasi selesai">${route.doneCount||0}/${route.visitCount}</div><div class="l">Selesai</div></div>`;
 

@@ -20,6 +20,9 @@ function initMap(){
   S.layers.gps=L.layerGroup().addTo(S.map);
   S.layers.att=L.layerGroup().addTo(S.map);
   S.layers.hl=L.layerGroup().addTo(S.map);
+  const syncZoomClass=()=>el.classList.toggle('map-zoom-hi',(S.map?.getZoom()||0)>=17);
+  syncZoomClass();
+  S.map.on('zoomend',syncZoomClass);
   S.map.whenReady(()=>invalidateSize([0,200]));
   S.map.on('click mousedown',()=>{
     $('exportDropdown').classList.remove('open');
@@ -292,8 +295,10 @@ function renderMap(route=null,{gpsOnly=false}={}){
       });
       const attOffset=(a,idx,group)=>{
         if(group.length<=1)return null;
-        if(group.length===2)return {x:idx===0?-6:6,y:0};
-        const radius=7;
+        const hiZoom=(S.map?.getZoom()||0)>=17;
+        const pair=hiZoom?3:4;
+        if(group.length===2)return {x:idx===0?-pair:pair,y:0};
+        const radius=hiZoom?3:4;
         const angle=(-Math.PI/2)+(idx*2*Math.PI/group.length);
         return {x:Math.round(Math.cos(angle)*radius),y:Math.round(Math.sin(angle)*radius)};
       };
@@ -357,12 +362,12 @@ function renderMap(route=null,{gpsOnly=false}={}){
     return `${members[0]} +${members.length-1}`;
   })();
   $('mapOverlay').innerHTML=`
-    <span class="map-pill" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(route.zone)} · ${esc(teamDisplay)}</span>
-    <span class="map-pill ${sev==='high'?'danger':sev==='medium'?'warn':''}">Risk ${route.riskScore} · ${esc(route.riskLevel)}</span>
-    <span class="map-pill">${mappable.length} titik</span>
-    ${totalKm>0?`<span class="map-pill">~${totalKm} km total</span>`:''}
-    ${hi?`<span class="map-pill danger">⚠ ${hi} High</span>`:''}
-    ${med?`<span class="map-pill warn">▲ ${med} Med</span>`:''}
+    <span class="map-pill" title="${esc(route.zone)} · ${esc(teamDisplay)}" style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(route.zone)} · ${esc(teamDisplay)}</span>
+    <span class="map-pill ${sev==='high'?'danger':sev==='medium'?'warn':''}" title="Risk ${route.riskScore} · ${esc(route.riskLevel)}">Risk ${route.riskScore} · ${esc(route.riskLevel)}</span>
+    <span class="map-pill secondary" title="${mappable.length} titik">${mappable.length} titik</span>
+    ${totalKm>0?`<span class="map-pill secondary" title="Total estimasi jarak route">~${totalKm} km total</span>`:''}
+    ${hi?`<span class="map-pill danger">⚠ ${hi} Tinggi</span>`:''}
+    ${med?`<span class="map-pill warn">▲ ${med} Sedang</span>`:''}
     ${gpsPill}`;
 
   const gob=$('gpsOverlayBtn');

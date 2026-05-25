@@ -10,6 +10,7 @@ async function loadDateIndex(date){
     return`<option value="${esc(z)}">${esc(z)}${zd.highIssues?` ⚠${zd.highIssues}`:''}</option>`;
   }).join('');
   if($('zoneSelect').value!=='all'&&!zones.includes($('zoneSelect').value))$('zoneSelect').value='all';
+  $('zoneSelect').title=$('zoneSelect').value||'';
   S.allZonesData=null;  // invalidate cache on date change
 }
 
@@ -20,10 +21,10 @@ async function loadAllZonesAggregated(){
   $('routeList').innerHTML='<div class="empty-state">Memuat semua zona...</div>';
   $('issueList').innerHTML='<div class="empty-state">Memuat...</div>';
   $('zoneStats').innerHTML=`
-    <div class="zstat"><div class="n">—</div><div class="l">Routes</div></div>
-    <div class="zstat danger"><div class="n">—</div><div class="l">High</div></div>
-    <div class="zstat warn"><div class="n">—</div><div class="l">Medium</div></div>
-    <div class="zstat info"><div class="n">—</div><div class="l">GPS Pts</div></div>`;
+    <div class="zstat"><div class="n">—</div><div class="l">Rute</div></div>
+    <div class="zstat danger"><div class="n">—</div><div class="l">Tinggi</div></div>
+    <div class="zstat warn"><div class="n">—</div><div class="l">Sedang</div></div>
+    <div class="zstat info"><div class="n">—</div><div class="l">GPS</div></div>`;
   await new Promise(r=>setTimeout(r,0));
   const allRoutes=[],allIssues=[];
   const CONCURRENT=5;
@@ -61,10 +62,10 @@ async function loadZoneData(){
   // Show loading immediately, yield to browser before heavy work
   $('routeList').innerHTML='<div class="empty-state">Memuat...</div>';
   $('zoneStats').innerHTML=`
-    <div class="zstat"><div class="n">—</div><div class="l">Routes</div></div>
-    <div class="zstat danger"><div class="n">—</div><div class="l">High</div></div>
-    <div class="zstat warn"><div class="n">—</div><div class="l">Medium</div></div>
-    <div class="zstat info"><div class="n">—</div><div class="l">GPS Pts</div></div>`;
+    <div class="zstat"><div class="n">—</div><div class="l">Rute</div></div>
+    <div class="zstat danger"><div class="n">—</div><div class="l">Tinggi</div></div>
+    <div class="zstat warn"><div class="n">—</div><div class="l">Sedang</div></div>
+    <div class="zstat info"><div class="n">—</div><div class="l">GPS</div></div>`;
   await new Promise(r=>setTimeout(r,0));
   try{
   if(S.dataCache[file]){S.zoneData=S.dataCache[file];}
@@ -156,6 +157,7 @@ async function loadAuditPicZones(){
   if(saved!=='all'&&!pics.includes(saved))saved='all';
   S.auditPic=saved;
   sel.value=saved;
+  sel.title=saved;
 }
 
 function zonesForActivePic(zones){
@@ -183,7 +185,6 @@ function setTheme(theme,{syncMap=true}={}){
   $('themeIconMoon').style.display=isDark?'block':'none';
   const style=isDark?'carto_dark':'carto_light';
   $('mapStyleSelect').value=style;
-  document.querySelectorAll('[data-style]').forEach(e=>e.classList.toggle('on',e.dataset.style===style));
   if(syncMap&&typeof setLayer==='function'){
     $('mapStyleSelect').value=style;
     setLayer(style);
@@ -194,7 +195,7 @@ function setAuditor(name){
   S.auditor=name||null;
   try{localStorage.setItem('audit_auditor_name',S.auditor||'');}catch{}
   $('auditorNameTop').textContent=S.auditor||'Auditor';
-  $('auditorChip').style.display=S.auditor?'flex':'none';
+  $('toolbarStatus').style.display=S.auditor?'flex':'none';
   $('identityGate').classList.toggle('show',!S.auditor);
 }
 
@@ -221,7 +222,8 @@ async function init(){
     await loadAuditPicZones();
     S.manifest=await fetchJson('data/manifest.json');
     const s=S.manifest.stats||{};
-    $('buildInfo').textContent=`${S.manifest.generatedAt} · ${s.routes||0} routes · ${s.issues||0} issues`;
+    const buildDate=String(S.manifest.generatedAt||'').slice(0,10)||'Build';
+    $('buildInfo').textContent=`${buildDate} · ${s.routes||0} rute · ${s.issues||0} temuan`;
     const dates=S.manifest.availableDates||[];
     if(!dates.length)throw new Error('Manifest kosong — jalankan build_data.py dulu.');
     const di=$('dateSelect');
@@ -252,6 +254,8 @@ $('dateSelect').addEventListener('change',async()=>{
   await loadDateIndex(d);await loadZoneData();
 });
 $('zoneSelect').addEventListener('change',loadZoneData);
+$('zoneSelect').addEventListener('change',()=>{$('zoneSelect').title=$('zoneSelect').value||'';});
+$('auditPicSelect').addEventListener('change',()=>{$('auditPicSelect').title=$('auditPicSelect').value||'';});
 $('auditPicSelect').addEventListener('change',async()=>{
   S.auditPic=$('auditPicSelect').value||'all';
   try{localStorage.setItem('audit_pic_filter',S.auditPic);}catch{}
@@ -272,16 +276,6 @@ $('zoneStats').addEventListener('click',e=>{
   $('severitySelect').value=next;
   document.querySelectorAll('[data-sev-filter]').forEach(s=>s.classList.toggle('sev-active',s.dataset.sevFilter===next&&next!=='all'));
   renderRouteList();renderIssueList();
-});
-
-/* map style — from legend */
-document.querySelectorAll('[data-style]').forEach(el=>{
-  el.addEventListener('click',()=>{
-    const style=el.dataset.style;
-    document.querySelectorAll('[data-style]').forEach(e=>e.classList.toggle('on',e.dataset.style===style));
-    $('mapStyleSelect').value=style;
-    setLayer(style);
-  });
 });
 
 $('themeToggleBtn').addEventListener('click',()=>{

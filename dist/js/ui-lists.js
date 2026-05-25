@@ -120,10 +120,10 @@ function renderZoneStats(){
   const cur=document.getElementById('severitySelect')?.value||'all';
   const act=v=>cur===v&&v!=='all'?' sev-active':'';
   $('zoneStats').innerHTML=`
-    <div class="zstat${act('all')}" data-sev-filter="all"><div class="n">${s.routeCount||0}</div><div class="l">Routes</div></div>
-    <div class="zstat danger${act('high')}" data-sev-filter="high"><div class="n">${high}</div><div class="l">High</div></div>
-    <div class="zstat warn${act('medium')}" data-sev-filter="medium"><div class="n">${med}</div><div class="l">Med</div></div>
-    <div class="zstat info${act('low')}" data-sev-filter="low"><div class="n">${low}</div><div class="l">Low</div></div>`;
+    <div class="zstat${act('all')}" data-sev-filter="all"><div class="n">${s.routeCount||0}</div><div class="l">Rute</div></div>
+    <div class="zstat danger${act('high')}" data-sev-filter="high"><div class="n">${high}</div><div class="l">Tinggi</div></div>
+    <div class="zstat warn${act('medium')}" data-sev-filter="medium"><div class="n">${med}</div><div class="l">Sedang</div></div>
+    <div class="zstat info${act('low')}" data-sev-filter="low"><div class="n">${low}</div><div class="l">Rendah</div></div>`;
 }
 
 function renderRouteList(){
@@ -160,10 +160,10 @@ function renderRouteList(){
         <span class="rbadge ${rbClass(r.riskLevel)}">${esc(r.riskScore)} · ${esc(r.riskLevel)}</span>
       </div>
       <div class="rc-pills">
-        ${hi?`<span class="pill high">▲ ${hi} high</span>`:''}
-        ${med?`<span class="pill medium">▲ ${med} med</span>`:''}
+        ${hi?`<span class="pill high">▲ ${hi} tinggi</span>`:''}
+        ${med?`<span class="pill medium">▲ ${med} sedang</span>`:''}
         ${topTypePill}
-        ${!hi&&!med&&!noise?`<span class="pill normal">✓ Clean</span>`:''}
+        ${!hi&&!med&&!noise?`<span class="pill normal">✓ Bersih</span>`:''}
         ${fuBadge}
         <span class="pill neutral">${esc(r.startTime)}–${esc(r.endTime)}</span>
       </div>
@@ -272,7 +272,7 @@ async function renderZoneList(){
     return`<div style="margin-bottom:10px">
       <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--danger);margin-bottom:6px;display:flex;align-items:center;gap:6px">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
-        High Issues — Semua Zona
+        Temuan Tinggi — Semua Zona
       </div>
       ${highRoutes.map(({zone,route,hi})=>`
         <div class="route-card" data-zone-route="${esc(zone)}" data-route-id="${esc(route.routeId)}" style="margin-bottom:5px;border-left:3px solid var(--danger)">
@@ -281,7 +281,7 @@ async function renderZoneList(){
               <div class="rc-name">${esc(route.teamName)}</div>
               <div class="rc-meta">${esc(zone)} · ${hi.map(i=>esc(i.type.replace(/_/g,' '))).join(', ')}</div>
             </div>
-            <span class="pill high">${hi.length} high</span>
+            <span class="pill high">${hi.length} tinggi</span>
           </div>
         </div>`).join('')}
     </div>
@@ -296,9 +296,9 @@ async function renderZoneList(){
         <span class="pill neutral">⏳</span>
       </div>
       <div class="zone-card-stats">
-        <div class="zone-card-stat"><div class="n">—</div><div class="l">Routes</div></div>
-        <div class="zone-card-stat"><div class="n">—</div><div class="l">High</div></div>
-        <div class="zone-card-stat"><div class="n">—</div><div class="l">Med</div></div>
+        <div class="zone-card-stat"><div class="n">—</div><div class="l">Rute</div></div>
+        <div class="zone-card-stat"><div class="n">—</div><div class="l">Tinggi</div></div>
+        <div class="zone-card-stat"><div class="n">—</div><div class="l">Sedang</div></div>
       </div>
     </div>`).join('');
 
@@ -358,9 +358,9 @@ async function renderZoneList(){
           ${summary.critical?`<span class="pill high">${summary.critical} Critical</span>`:summary.needsReview?`<span class="pill medium">${summary.needsReview} Review</span>`:'<span class="pill normal">OK</span>'}
         </div>
         <div class="zone-card-stats">
-          <div class="zone-card-stat"><div class="n">${summary.routeCount}</div><div class="l">Routes</div></div>
-          <div class="zone-card-stat high"><div class="n">${summary.high}</div><div class="l">High</div></div>
-          <div class="zone-card-stat med"><div class="n">${summary.medium}</div><div class="l">Med</div></div>
+          <div class="zone-card-stat"><div class="n">${summary.routeCount}</div><div class="l">Rute</div></div>
+          <div class="zone-card-stat high"><div class="n">${summary.high}</div><div class="l">Tinggi</div></div>
+          <div class="zone-card-stat med"><div class="n">${summary.medium}</div><div class="l">Sedang</div></div>
         </div>`;
       card.dataset.zoneJump=z;
       card.addEventListener('click',()=>jumpToZone(z));

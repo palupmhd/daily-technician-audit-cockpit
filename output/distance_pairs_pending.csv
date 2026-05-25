@@ -1,3 +1,4 @@
 pairId,date,zone,routeId,purpose,fromType,fromLabel,fromLat,fromLng,toType,toLabel,toLat,toLng
-822e0423cc57f933,2026-05-11,PONTIANAK,63ea104cbcfc056b,route_sequence,attendance_in,Absen masuk Dito Ardiansyah,-0.0428938,-0.0428938,attendance_out,Absen pulang Irfan,0.0597624,111.4914464
-f217b7bc33339c5b,2026-05-11,YOGYAKARTA,41f8f5dd4b2aded3,route_sequence,attendance_in,Absen masuk Ridho Agustian,-7.7786235,-7.7786235,store_task,PIERE TENDEAN ( TX37 ),-7.8043999,110.3509855
+002fcee7812dd893,2026-05-23,PONTIANAK,e32bd94f704ee5ba,route_sequence,attendance_in,Absen masuk Andhika Bagus Pradana,-6.1439786,106.8312145,store_task,SIMPANG 3 SOSOK SANGGAU (1P76),0.2928584,110.2344404
+738a3132cb51df23,2026-05-23,PONTIANAK,e32bd94f704ee5ba,route_sequence,store_task,SIMPANG 3 SOSOK SANGGAU (1P76),0.2928584,110.2344404,attendance_out,Absen pulang Andhika Bagus Pradana,-6.143959,106.8312316
+7023314455303550,2026-05-23,PURWOKERTO,fff7cf5b85b4ce6f,travel_gap,store_task,RSU SETJONEGORO WONOSO (TXVP),-7.3641785,109.8986923,store_task,A YANI 132 (TCJ4),-7.3675905,109.9011669
