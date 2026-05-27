@@ -33,9 +33,13 @@ function renderEvidence(route){
     $('timelineMeta').textContent='';
     return;
   }
-  $('evidenceTitle').textContent=route.teamName||route.teamKey;
+  const _members=route.members||[];
+  const _titleFull=route.teamName||route.teamKey;
+  const _titleShort=_members.length>1?`${_members[0]} +${_members.length-1} lainnya`:_titleFull;
+  $('evidenceTitle').textContent=_titleShort;
+  $('evidenceTitle').title=_members.length>1?_titleFull:'';
   $('evidenceSub').innerHTML=`${esc(route.date)} · <strong>${esc(route.zone)}</strong> · PIC: ${esc(route.lead||'—')}`;
-  $('headerBadge').innerHTML=`<span class="rbadge ${rbClass(route.riskLevel)}">${esc(route.riskScore)} · ${esc(route.riskLevel)}</span>`;
+  $('headerBadge').innerHTML=`<span class="rbadge ${rbClass(route.riskLevel)}">${esc(route.riskScore)} · ${esc(riskLabel(route.riskLevel))}</span>`;
 
   const actionable=(route.issues||[]).filter(i=>!NOISE_TYPES.has(i.type));
   const hi=actionable.filter(i=>i.severity==='high').length;

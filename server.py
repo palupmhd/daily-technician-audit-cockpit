@@ -40,6 +40,7 @@ from urllib.parse import urlparse
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 DIST_DIR = Path(__file__).parent / "dist"
 NOTES_DIR = DIST_DIR / "notes"
+SYNC_CFG  = DIST_DIR / "config" / "sync.json"
 POLL_TIMEOUT = 25  # seconds for long-poll
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -216,6 +217,23 @@ class AuditHandler(SimpleHTTPRequestHandler):
         return bool(re.match(r"^\d{4}-\d{2}-\d{2}$", date))
 
 
+def set_sync_enabled(enabled: bool) -> None:
+    """Write config/sync.json so the JS client knows whether to probe for sync."""
+    try:
+        SYNC_CFG.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "enabled": enabled,
+            "_comment": "Set 'enabled' to true jika menggunakan server.py untuk fitur sync notes tim. server.py akan otomatis menulis file ini.",
+        }
+        tmp = SYNC_CFG.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        tmp.replace(SYNC_CFG)
+    except Exception as e:
+        print(f"  [warn] Tidak bisa tulis config/sync.json: {e}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Audit Map local server")
     parser.add_argument("--port", type=int, default=8787)
@@ -226,6 +244,7 @@ def main() -> None:
     local_ip = get_local_ip()
 
     NOTES_DIR.mkdir(parents=True, exist_ok=True)
+    set_sync_enabled(True)   # tell the JS client sync is available
 
     server = ThreadingHTTPServer((host, args.port), AuditHandler)
     server.daemon_threads = True
@@ -245,6 +264,8 @@ def main() -> None:
         server.serve_forever()
     except KeyboardInterrupt:
         print("\nServer stopped.")
+    finally:
+        set_sync_enabled(False)  # reset flag so static-server users don't get a stale probe
 
 
 if __name__ == "__main__":

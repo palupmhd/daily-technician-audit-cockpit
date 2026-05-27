@@ -27,7 +27,7 @@ function actionableIssueCount(route){
 
 function filterRoutes(routes){
   const q=$('searchInput').value.trim().toLowerCase();
-  const sev=$('severitySelect').value;
+  const sev=S.severityFilter||'all';
   return routes.filter(r=>{
     // Quick filter: only routes that need clarification
     if(S.qfOnlyAction){
@@ -54,6 +54,14 @@ function rbClass(level){
   if(l.includes('critical'))return'Critical';
   if(l.includes('needs'))return'NeedsReview';
   if(l.includes('watch'))return'Watch';
+  return'Normal';
+}
+function riskLabel(level){
+  if(!level)return'Normal';
+  const l=level.toLowerCase();
+  if(l.includes('critical'))return'Kritis';
+  if(l.includes('needs')||l.includes('review'))return'Tinjau';
+  if(l.includes('watch'))return'Pantau';
   return'Normal';
 }
 
@@ -117,23 +125,28 @@ function renderZoneStats(){
   const high=actionable.filter(i=>i.severity==='high').length;
   const med=actionable.filter(i=>i.severity==='medium').length;
   const low=actionable.filter(i=>i.severity==='low').length;
-  const cur=document.getElementById('severitySelect')?.value||'all';
+  const cur=S.severityFilter||'all';
   const act=v=>cur===v&&v!=='all'?' sev-active':'';
   $('zoneStats').innerHTML=`
-    <div class="zstat${act('all')}" data-sev-filter="all"><div class="n">${s.routeCount||0}</div><div class="l">Rute</div></div>
-    <div class="zstat danger${act('high')}" data-sev-filter="high"><div class="n">${high}</div><div class="l">Tinggi</div></div>
-    <div class="zstat warn${act('medium')}" data-sev-filter="medium"><div class="n">${med}</div><div class="l">Sedang</div></div>
-    <div class="zstat info${act('low')}" data-sev-filter="low"><div class="n">${low}</div><div class="l">Rendah</div></div>`;
+    <div class="zstat${act('all')}" data-sev-filter="all" title="Total rute · klik untuk tampilkan semua"><div class="n">${s.routeCount||0}</div><div class="l">Rute</div></div>
+    <div class="zstat danger${act('high')}" data-sev-filter="high" title="Jumlah temuan severity tinggi · klik untuk filter rute"><div class="n">${high}</div><div class="l"><span class="l-ctx">isu</span>Tinggi</div></div>
+    <div class="zstat warn${act('medium')}" data-sev-filter="medium" title="Jumlah temuan severity sedang · klik untuk filter rute"><div class="n">${med}</div><div class="l"><span class="l-ctx">isu</span>Sedang</div></div>
+    <div class="zstat info${act('low')}" data-sev-filter="low" title="Jumlah temuan severity rendah · klik untuk filter rute"><div class="n">${low}</div><div class="l"><span class="l-ctx">isu</span>Rendah</div></div>`;
 }
 
 function renderRouteList(){
-  const routes=filterRoutes(S.zoneData?.routes||[]).slice(0,80);
+  const allFiltered=filterRoutes(S.zoneData?.routes||[]);
+  const MAX_ROUTES=200;
+  const routes=allFiltered.slice(0,MAX_ROUTES);
   if(!routes.length){$('routeList').innerHTML='<div class="empty-state">Tidak ada route sesuai filter.</div>';return;}
+  const truncNote=allFiltered.length>MAX_ROUTES?`<div class="empty-state" style="color:var(--warn-text);font-size:11px;padding:8px 10px">Menampilkan ${MAX_ROUTES} dari ${allFiltered.length} route — gunakan filter untuk mempersempit.</div>`:'';
+  const riskIcon=`<svg width="8" height="7" viewBox="0 0 10 8" fill="currentColor" aria-hidden="true"><rect x="0" y="4" width="2.5" height="4" rx=".5" opacity=".45"/><rect x="3.75" y="2" width="2.5" height="6" rx=".5" opacity=".7"/><rect x="7.5" y="0" width="2.5" height="8" rx=".5"/></svg>`;
   $('routeList').innerHTML=routes.map(r=>{
     const sev=routeSev(r);
     const actionable=(r.issues||[]).filter(i=>!NOISE_TYPES.has(i.type));
     const hi=actionable.filter(i=>i.severity==='high').length;
     const med=actionable.filter(i=>i.severity==='medium').length;
+    const lo=actionable.filter(i=>i.severity==='low').length;
     const noise=(r.issues||[]).filter(i=>NOISE_TYPES.has(i.type)).length;
     const actionIssues=(r.issues||[]).filter(i=>ACTION_TYPES.has(i.type));
     const resolvedCount=actionIssues.filter(i=>{const fu=S.followups[i.id];return fu&&fu.status&&fu.status!=='pending';}).length;
@@ -147,7 +160,9 @@ function renderRouteList(){
           ?`<span class="pill low fu-route-pill">${notedCount} note</span>`
           :'';
     const topIssue=actionable.find(i=>i.severity==='high')||actionable.find(i=>i.severity==='medium');
-    const topTypePill=topIssue?`<span class="pill neutral" style="font-size:9px">${esc(issueTypeName(topIssue.type).split(' ').slice(0,2).join(' '))}</span>`:'';
+    const topIssueName=topIssue?issueTypeName(topIssue.type):'';
+    const topIssueText=topIssue?`${topIssueName}: ${topIssue.message}`:'Tidak ada masalah operasional utama';
+    const topTypePill=topIssue?`<span class="pill neutral" style="font-size:9px">${esc(topIssueName.split(' ').slice(0,2).join(' '))}</span>`:'';
     const isAct=r.routeId===S.selectedRouteId;
     const actCls=isAct?(sev==='high'?'sel-d':sev==='medium'?'sel-w':'sel'):'';
     const hasFu=routeHasFollowup(r)?'has-followup':'';
@@ -156,26 +171,33 @@ function renderRouteList(){
         <div style="min-width:0">
           <div class="rc-name">${esc(r.teamName||r.teamKey)}</div>
           <div class="rc-meta">${r._zone?`<span style="color:var(--accent);font-weight:700;font-size:10px;letter-spacing:.03em">${esc(r._zone)}</span> · `:''}PIC: ${esc(r.lead||'—')} · ${r.visitCount} lokasi · ${r.jobCount} job</div>
+          <div class="rc-primary ${topIssue?'':'clean'}">${esc(topIssueText)}</div>
         </div>
-        <span class="rbadge ${rbClass(r.riskLevel)}">${esc(r.riskScore)} · ${esc(r.riskLevel)}</span>
+        <span class="rbadge ${rbClass(r.riskLevel)}" title="Skor risiko rute: ${esc(r.riskScore)}">${riskIcon}${esc(r.riskScore)} · ${esc(riskLabel(r.riskLevel))}</span>
       </div>
       <div class="rc-pills">
         ${hi?`<span class="pill high">▲ ${hi} tinggi</span>`:''}
         ${med?`<span class="pill medium">▲ ${med} sedang</span>`:''}
+        ${lo?`<span class="pill low">▲ ${lo} rendah</span>`:''}
         ${topTypePill}
-        ${!hi&&!med&&!noise?`<span class="pill normal">✓ Bersih</span>`:''}
+        ${!hi&&!med&&!lo&&!noise?`<span class="pill normal">✓ Bersih</span>`:''}
         ${fuBadge}
         <span class="pill neutral">${esc(r.startTime)}–${esc(r.endTime)}</span>
       </div>
     </div>`;
-  }).join('');
+  }).join('')+truncNote;
   document.querySelectorAll('[data-route]').forEach(el=>el.addEventListener('click',async()=>{
     const zoneKey=el.dataset.routeZone;
-    if(zoneKey){
+    const currentZone=document.getElementById('zoneSelect').value;
+    if(zoneKey && currentZone!=='all'){
+      // Specific-zone view: switch zone and reload normally
       document.getElementById('zoneSelect').value=zoneKey;
       await loadZoneData();
       setTimeout(()=>selectRoute(el.dataset.route),150);
     }else{
+      // All-zones mode: S.zoneData already has all route data.
+      // Load GPS for this route's zone without changing the zone filter UI.
+      if(zoneKey && typeof loadGpsForZone==='function') await loadGpsForZone(zoneKey);
       selectRoute(el.dataset.route);
     }
   }));
@@ -185,17 +207,21 @@ function renderIssueList(){
   let issues=S.zoneData?.issues||[];
   if(S.qfHideNoiseIssue){issues=issues.filter(i=>!NOISE_TYPES.has(i.type));}
   const q=$('searchInput').value.trim().toLowerCase();
-  const sev=$('severitySelect').value;
+  const sev=S.severityFilter||'all';
   if(sev!=='all'){issues=issues.filter(i=>i.severity===sev);}
   if(q)issues=issues.filter(i=>`${i.type} ${i.message} ${i.locationName||''}`.toLowerCase().includes(q));
-  issues=issues.slice().sort((a,b)=>(SEV[b.severity]||0)-(SEV[a.severity]||0)).slice(0,100);
+  const allSorted=issues.slice().sort((a,b)=>(SEV[b.severity]||0)-(SEV[a.severity]||0));
+  const MAX_ISSUES=300;
+  issues=allSorted.slice(0,MAX_ISSUES);
+  const truncNoteIss=allSorted.length>MAX_ISSUES?`<div class="empty-state" style="color:var(--warn-text);font-size:11px;padding:8px 10px">Menampilkan ${MAX_ISSUES} dari ${allSorted.length} temuan — gunakan filter untuk mempersempit.</div>`:'';
   if(!issues.length){$('issueList').innerHTML='<div class="empty-state">Tidak ada issue sesuai filter.</div>';return;}
   $('issueList').innerHTML=issues.map(i=>{
     const r=routeById(i.routeId);
     const fu=getFu(i.id);
     const fuBadge=fu.status==='clarified'?'<span class="pill normal" style="margin-left:6px">selesai</span>':fu.status==='escalated'?'<span class="pill medium" style="margin-left:6px">eskalasi</span>':'';
     const typeLabel=typeof issueTypeName==='function'?issueTypeName(i.type):i.type.replace(/_/g,' ');
-    return`<div class="issue-card sev-${esc(i.severity)}${i.id===S.selectedIssueId?' sel-ic':''}" data-issue="${esc(i.id)}"${i._zone?` data-issue-zone="${esc(i._zone)}"`:''}>
+    const isSelIc=i.id===S.selectedIssueId&&(!S.selectedIssueZone||i._zone===S.selectedIssueZone);
+    return`<div class="issue-card sev-${esc(i.severity)}${isSelIc?' sel-ic':''}" data-issue="${esc(i.id)}"${i._zone?` data-issue-zone="${esc(i._zone)}"`:''}>
 
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
         <div style="min-width:0">
@@ -209,14 +235,18 @@ function renderIssueList(){
         ${esc(i.locationName||r?.teamName||'—')}
       </div>
     </div>`;
-  }).join('');
+  }).join('')+truncNoteIss;
   document.querySelectorAll('[data-issue]').forEach(el=>el.addEventListener('click',async()=>{
     const zoneKey=el.dataset.issueZone;
-    if(zoneKey){
+    const currentZone=document.getElementById('zoneSelect').value;
+    if(zoneKey && currentZone!=='all'){
+      // Specific-zone view: switch zone and reload normally
       document.getElementById('zoneSelect').value=zoneKey;
       await loadZoneData();
       setTimeout(()=>selectIssue(el.dataset.issue),150);
     }else{
+      // All-zones mode: load GPS for this issue's zone without changing the zone filter UI
+      if(zoneKey && typeof loadGpsForZone==='function') await loadGpsForZone(zoneKey);
       selectIssue(el.dataset.issue);
     }
   }));
@@ -251,6 +281,7 @@ async function loadAllZones(){
 }
 
 async function renderZoneList(){
+  if(!$('zoneList'))return;
   const date=$('dateSelect').value;
   if(!S.dateIndex)return;
   const zones=zonesForActivePic(Object.keys(S.dateIndex.zones||{}).sort());
@@ -355,12 +386,12 @@ async function renderZoneList(){
       card.innerHTML=`
         <div class="zone-card-top">
           <span class="zone-card-name">${esc(z)}</span>
-          ${summary.critical?`<span class="pill high">${summary.critical} Critical</span>`:summary.needsReview?`<span class="pill medium">${summary.needsReview} Review</span>`:'<span class="pill normal">OK</span>'}
+          ${summary.critical?`<span class="pill high">${summary.critical} Kritis</span>`:summary.needsReview?`<span class="pill medium">${summary.needsReview} Tinjau</span>`:'<span class="pill normal">OK</span>'}
         </div>
         <div class="zone-card-stats">
           <div class="zone-card-stat"><div class="n">${summary.routeCount}</div><div class="l">Rute</div></div>
-          <div class="zone-card-stat high"><div class="n">${summary.high}</div><div class="l">Tinggi</div></div>
-          <div class="zone-card-stat med"><div class="n">${summary.medium}</div><div class="l">Sedang</div></div>
+          <div class="zone-card-stat high"><div class="n">${summary.high}</div><div class="l"><span class="l-ctx">isu</span>Tinggi</div></div>
+          <div class="zone-card-stat med"><div class="n">${summary.medium}</div><div class="l"><span class="l-ctx">isu</span>Sedang</div></div>
         </div>`;
       card.dataset.zoneJump=z;
       card.addEventListener('click',()=>jumpToZone(z));
@@ -407,6 +438,7 @@ async function jumpToZone(zone){
   window.actionableIssueCount=actionableIssueCount;
   window.filterRoutes=filterRoutes;
   window.rbClass=rbClass;
+  window.riskLabel=riskLabel;
   window.autoContext=autoContext;
   window.renderZoneStats=renderZoneStats;
   window.renderRouteList=renderRouteList;

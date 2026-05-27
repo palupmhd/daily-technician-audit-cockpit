@@ -276,8 +276,8 @@ function printReport(){
 
   <div class="risk-strip" style="background:${r.riskLevel?.toLowerCase().includes('critical')?'#fdf2f2':r.riskLevel?.toLowerCase().includes('needs')?'#fffbf0':'#f8fffe'}">
     <div>
-      <div class="risk-badge" style="background:${riskColor}">${esc(r.riskLevel)}</div>
-      <div class="risk-detail" style="margin-top:6px">Risk Score: <strong>${r.riskScore}</strong>
+      <div class="risk-badge" style="background:${riskColor}">${esc(riskLabel(r.riskLevel))}</div>
+      <div class="risk-detail" style="margin-top:6px">Skor Risiko: <strong>${r.riskScore}</strong>
       ${hi?` · <span style="color:#c0392b;font-weight:700">${hi} Temuan Tinggi</span>`:''}
       ${med?` · <span style="color:#d68910;font-weight:700">${med} Temuan Sedang</span>`:''}
       </div>

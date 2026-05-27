@@ -35,6 +35,7 @@
   function setFu(issueId,patch){
     if(!S.auditor){
       $('identityGate')?.classList.add('show');
+      if(typeof trapFocus==='function')trapFocus(document.querySelector('.identity-card'));
       return Promise.resolve({ok:false,localOnly:true,missingAuditor:true});
     }
     S.followups[issueId]={...getFu(issueId),...patch,auditor:S.auditor,updatedAt:new Date().toISOString()};
@@ -60,6 +61,16 @@
   function snUrl(date){return`/api/notes/${date}`;}
 
   async function snCheck(){
+    // Read config/sync.json first. If enabled:false, skip the probe entirely —
+    // this prevents a red 404 in the console when running on a plain static server.
+    try{
+      const cfg=await fetch('config/sync.json',{cache:'no-store',signal:AbortSignal.timeout(1000)});
+      if(cfg.ok){
+        const json=await cfg.json();
+        if(!json.enabled){SN.enabled=false;snSetStatus('offline');return;}
+      }
+    }catch{/* config unreadable → fall through and probe normally */}
+
     try{
       const date=$('dateSelect')?.value||'2000-01-01';
       const r=await fetch(snUrl(date),{method:'GET',signal:AbortSignal.timeout(1500)});

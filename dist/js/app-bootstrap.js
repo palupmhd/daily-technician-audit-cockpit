@@ -11,6 +11,7 @@ async function loadDateIndex(date){
   }).join('');
   if($('zoneSelect').value!=='all'&&!zones.includes($('zoneSelect').value))$('zoneSelect').value='all';
   $('zoneSelect').title=$('zoneSelect').value||'';
+  syncCustomSelect('zoneSelect');
   S.allZonesData=null;  // invalidate cache on date change
 }
 
@@ -24,9 +25,9 @@ async function loadAllZonesAggregated(){
     <div class="zstat"><div class="n">—</div><div class="l">Rute</div></div>
     <div class="zstat danger"><div class="n">—</div><div class="l">Tinggi</div></div>
     <div class="zstat warn"><div class="n">—</div><div class="l">Sedang</div></div>
-    <div class="zstat info"><div class="n">—</div><div class="l">GPS</div></div>`;
+    <div class="zstat info"><div class="n">—</div><div class="l">Rendah</div></div>`;
   await new Promise(r=>setTimeout(r,0));
-  const allRoutes=[],allIssues=[];
+  const allRoutes=[],allIssues=[],zoneGpsFiles={};
   const CONCURRENT=5;
   for(let i=0;i<zones.length;i+=CONCURRENT){
     await Promise.all(zones.slice(i,i+CONCURRENT).map(async z=>{
@@ -37,13 +38,15 @@ async function loadAllZonesAggregated(){
       else{try{data=await fetchJson(file);S.dataCache[file]=data;}catch{return;}}
       (data.routes||[]).forEach(r=>allRoutes.push({...r,_zone:z}));
       (data.issues||[]).forEach(i=>allIssues.push({...i,_zone:z}));
+      if(data.gpsFile)zoneGpsFiles[z]=data.gpsFile;
     }));
   }
-  S.zoneData={routes:allRoutes,issues:allIssues,summary:{routeCount:allRoutes.length}};
+  S.zoneData={routes:allRoutes,issues:allIssues,summary:{routeCount:allRoutes.length},_zoneGpsFiles:zoneGpsFiles};
   S.gpsData=null;
-  S.selectedRouteId=null;S.selectedIssueId=null;
+  S.selectedRouteId=null;S.selectedIssueId=null;S.selectedIssueZone=null;
   S.followupUi={edit:{},statusOpen:{}};
   loadFollowups();
+  updateTopbarContext();
   renderZoneStats();renderRouteList();renderIssueList();renderEvidence(null);
   clearAllMapLayers();
   $('mapOverlay').innerHTML='<span class="map-pill">Pilih route untuk lihat peta zona spesifik.</span>';
@@ -65,7 +68,7 @@ async function loadZoneData(){
     <div class="zstat"><div class="n">—</div><div class="l">Rute</div></div>
     <div class="zstat danger"><div class="n">—</div><div class="l">Tinggi</div></div>
     <div class="zstat warn"><div class="n">—</div><div class="l">Sedang</div></div>
-    <div class="zstat info"><div class="n">—</div><div class="l">GPS</div></div>`;
+    <div class="zstat info"><div class="n">—</div><div class="l">Rendah</div></div>`;
   await new Promise(r=>setTimeout(r,0));
   try{
   if(S.dataCache[file]){S.zoneData=S.dataCache[file];}
@@ -77,12 +80,13 @@ async function loadZoneData(){
   $('gpsFilterTog')?.classList.remove('active');
   const gk=S.zoneData.gpsFile;
   if(gk&&S.gpsCache[gk])S.gpsData=S.gpsCache[gk];
-  S.selectedRouteId=null;S.selectedIssueId=null;
+  S.selectedRouteId=null;S.selectedIssueId=null;S.selectedIssueZone=null;
   S.followupUi={edit:{},statusOpen:{}};
   S.gpsTimeFilter='all';
   const gpsEl=$('gpsTimeAll');if(gpsEl)gpsEl.checked=true;
   if(S.qfHideResolved){S.qfHideResolved=false;$('qfHideResolved').classList.remove('on');}
   loadFollowups();
+  updateTopbarContext();
   // Render list immediately
   renderZoneStats();renderRouteList();renderIssueList();renderEvidence(null);
   // Defer map to next frame so list renders first
@@ -158,6 +162,7 @@ async function loadAuditPicZones(){
   S.auditPic=saved;
   sel.value=saved;
   sel.title=saved;
+  syncCustomSelect('auditPicSelect');
 }
 
 function zonesForActivePic(zones){
@@ -171,6 +176,53 @@ function zoneAllowedByAuditPic(zone){
   return zonesForActivePic([zone]).length>0;
 }
 
+function formatTopbarDate(value){
+  const months=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  const m=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m)return value||'Tanggal belum dipilih';
+  return `${Number(m[3])} ${months[Number(m[2])-1]} ${m[1]}`;
+}
+
+function currentZoneLabel(){
+  const zone=$('zoneSelect')?.value||'all';
+  if(zone==='all')return 'Semua Zona';
+  const high=S.dateIndex?.zones?.[zone]?.highIssues;
+  return `${zone}${high?` △${high}`:''}`;
+}
+
+function updateTopbarContext(){
+  const date=formatTopbarDate($('dateSelect')?.value);
+  const zone=currentZoneLabel();
+  const routes=S.zoneData?.summary?.routeCount??S.zoneData?.routes?.length??S.manifest?.stats?.routes??0;
+  const issues=S.zoneData?.issues?(S.zoneData.issues.filter(i=>!NOISE_TYPES.has(i.type)).length):S.manifest?.stats?.issues??0;
+  const text=`${date} · ${zone} · ${routes} route · ${issues} temuan`;
+  if($('buildInfo')){
+    $('buildInfo').textContent=text;
+    $('buildInfo').title=text;
+  }
+}
+
+function syncCustomSelect(id){
+  const select=$(id);
+  const host=document.querySelector(`[data-select-for="${id}"]`);
+  if(!select||!host)return;
+  const selected=select.options[select.selectedIndex]||select.options[0];
+  const label=selected?.textContent||'Pilih';
+  host.innerHTML=`
+    <button type="button" class="cs-trigger" aria-haspopup="listbox" aria-expanded="${host.classList.contains('open')?'true':'false'}">
+      <span class="cs-label">${esc(label)}</span>
+      <svg class="cs-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div class="cs-menu" role="listbox">
+      ${Array.from(select.options).map(opt=>`
+        <button type="button" class="cs-option${opt.value===select.value?' selected':''}" role="option" aria-selected="${opt.value===select.value?'true':'false'}" data-value="${esc(opt.value)}">
+          <span>${esc(opt.textContent)}</span>
+          <svg class="cs-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+      `).join('')}
+    </div>`;
+}
+
 function activeTheme(){
   return document.documentElement.dataset.theme==='dark'?'dark':'light';
 }
@@ -181,22 +233,26 @@ function setTheme(theme,{syncMap=true}={}){
   try{localStorage.setItem('audit_theme',next);}catch{}
   const isDark=next==='dark';
   $('themeToggleLabel').textContent=isDark?'Dark':'Light';
+  $('themeToggleBtn').title=`Tema: ${isDark?'Dark':'Light'}`;
+  $('themeToggleBtn').setAttribute('aria-label',`Tema: ${isDark?'Dark':'Light'}`);
   $('themeIconSun').style.display=isDark?'none':'block';
   $('themeIconMoon').style.display=isDark?'block':'none';
   const style=isDark?'carto_dark':'carto_light';
-  $('mapStyleSelect').value=style;
   if(syncMap&&typeof setLayer==='function'){
-    $('mapStyleSelect').value=style;
     setLayer(style);
   }
 }
 
 function setAuditor(name){
+  const wasOpen=$('identityGate').classList.contains('show');
   S.auditor=name||null;
   try{localStorage.setItem('audit_auditor_name',S.auditor||'');}catch{}
   $('auditorNameTop').textContent=S.auditor||'Auditor';
   $('toolbarStatus').style.display=S.auditor?'flex':'none';
   $('identityGate').classList.toggle('show',!S.auditor);
+  const nowOpen=!S.auditor;
+  if(nowOpen&&!wasOpen)trapFocus($('identityGate').querySelector('.identity-card'));
+  else if(!nowOpen&&wasOpen)releaseFocusTrap();
 }
 
 async function ensureAuditor(){
@@ -254,12 +310,13 @@ $('dateSelect').addEventListener('change',async()=>{
   await loadDateIndex(d);await loadZoneData();
 });
 $('zoneSelect').addEventListener('change',loadZoneData);
-$('zoneSelect').addEventListener('change',()=>{$('zoneSelect').title=$('zoneSelect').value||'';});
-$('auditPicSelect').addEventListener('change',()=>{$('auditPicSelect').title=$('auditPicSelect').value||'';});
+$('zoneSelect').addEventListener('change',()=>{$('zoneSelect').title=$('zoneSelect').value||'';syncCustomSelect('zoneSelect');});
+$('auditPicSelect').addEventListener('change',()=>{$('auditPicSelect').title=$('auditPicSelect').value||'';syncCustomSelect('auditPicSelect');});
 $('auditPicSelect').addEventListener('change',async()=>{
   S.auditPic=$('auditPicSelect').value||'all';
   try{localStorage.setItem('audit_pic_filter',S.auditPic);}catch{}
   $('zoneSelect').value='all';
+  syncCustomSelect('zoneSelect');
   if(S.dateIndex)await loadDateIndex($('dateSelect').value);
   await loadZoneData();
   warmCache();
@@ -271,15 +328,50 @@ $('zoneStats').addEventListener('click',e=>{
   const stat=e.target.closest('[data-sev-filter]');
   if(!stat)return;
   const sev=stat.dataset.sevFilter;
-  const current=$('severitySelect').value;
+  const current=S.severityFilter||'all';
   const next=current===sev?'all':sev;
-  $('severitySelect').value=next;
+  S.severityFilter=next;
   document.querySelectorAll('[data-sev-filter]').forEach(s=>s.classList.toggle('sev-active',s.dataset.sevFilter===next&&next!=='all'));
   renderRouteList();renderIssueList();
 });
 
 $('themeToggleBtn').addEventListener('click',()=>{
   setTheme(activeTheme()==='dark'?'light':'dark');
+});
+
+$('settingsBtn')?.addEventListener('click',(e)=>{
+  e.stopPropagation();
+  $('settingsDropdown')?.classList.toggle('open');
+});
+document.addEventListener('click',(e)=>{
+  if(!$('settingsDropdown')?.contains(e.target))$('settingsDropdown')?.classList.remove('open');
+});
+
+document.addEventListener('click',(e)=>{
+  const trigger=e.target.closest('.cs-trigger');
+  const option=e.target.closest('.cs-option');
+  if(trigger){
+    const host=trigger.closest('.custom-select');
+    document.querySelectorAll('.custom-select.open').forEach(x=>{if(x!==host)x.classList.remove('open');});
+    host?.classList.toggle('open');
+    trigger.setAttribute('aria-expanded',host?.classList.contains('open')?'true':'false');
+    return;
+  }
+  if(option){
+    const host=option.closest('.custom-select');
+    const selectId=host?.dataset.selectFor;
+    const select=selectId?$(selectId):null;
+    if(select&&select.value!==option.dataset.value){
+      select.value=option.dataset.value;
+      select.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+    host?.classList.remove('open');
+    if(selectId)syncCustomSelect(selectId);
+    return;
+  }
+  if(!e.target.closest('.custom-select')){
+    document.querySelectorAll('.custom-select.open').forEach(x=>x.classList.remove('open'));
+  }
 });
 
 /* tabs */
@@ -407,16 +499,53 @@ $('expSummaryBtn').addEventListener('click',()=>{exportSummaryRaw();$('exportDro
 $('expIssueBtn').addEventListener('click',async()=>{await exportIssuesRaw();$('exportDropdown').classList.remove('open');});
 $('expRouteBtn').addEventListener('click',()=>{exportRouteRaw();$('exportDropdown').classList.remove('open');});
 
+/* ── GPS FOR ZONE (all-zones click without switching zone filter) ── */
+async function loadGpsForZone(zone){
+  const gpsFile=S.zoneData?._zoneGpsFiles?.[zone];
+  if(!gpsFile){S.gpsData=null;if(typeof renderGpsPlateFilter==='function')renderGpsPlateFilter();return;}
+  if(S.gpsCache[gpsFile]){S.gpsData=S.gpsCache[gpsFile];}
+  else{try{S.gpsData=await fetchJson(gpsFile);S.gpsCache[gpsFile]=S.gpsData;}catch{S.gpsData=null;}}
+  S.gpsPlateDisabled.clear();
+  if(typeof renderGpsPlateFilter==='function')renderGpsPlateFilter();
+}
+
+/* ── FOCUS TRAP (a11y P0) ── */
+const FOCUSABLE_SEL='button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+let _trapHandler=null,_trapReturnEl=null;
+function trapFocus(container){
+  _trapReturnEl=document.activeElement;
+  const els=[...container.querySelectorAll(FOCUSABLE_SEL)];
+  if(els.length)els[0].focus();
+  if(_trapHandler)document.removeEventListener('keydown',_trapHandler);
+  _trapHandler=function(e){
+    if(!els.length)return;
+    const first=els[0],last=els[els.length-1];
+    if(e.key==='Tab'){
+      if(e.shiftKey){if(document.activeElement===first){e.preventDefault();last.focus();}}
+      else{if(document.activeElement===last){e.preventDefault();first.focus();}}
+    }
+  };
+  document.addEventListener('keydown',_trapHandler);
+}
+function releaseFocusTrap(){
+  if(_trapHandler){document.removeEventListener('keydown',_trapHandler);_trapHandler=null;}
+  if(_trapReturnEl&&typeof _trapReturnEl.focus==='function')_trapReturnEl.focus();
+  _trapReturnEl=null;
+}
+
 function openExportModal(){
   if(typeof updateExportScopeText==='function')updateExportScopeText();
   $('exportDropdown').classList.remove('open');
   $('exportModal').classList.add('show');
+  trapFocus($('exportModal').querySelector('.export-card'));
 }
 function closeExportModal(){
   $('exportModal').classList.remove('show');
+  releaseFocusTrap();
 }
 $('exportCloseBtn').addEventListener('click',closeExportModal);
 $('exportModal').addEventListener('click',e=>{if(e.target.id==='exportModal')closeExportModal();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('exportModal').classList.contains('show'))closeExportModal();});
 document.querySelectorAll('[data-export-action]').forEach(btn=>{
   btn.addEventListener('click',async()=>{
     const action=btn.dataset.exportAction;
@@ -444,6 +573,14 @@ $('auditorConfirmBtn').addEventListener('click',()=>{
 $('changeAuditorBtn').addEventListener('click',()=>{
   if(S.auditor)$('auditorSelect').value=S.auditor;
   $('identityGate').classList.add('show');
+  trapFocus($('identityGate').querySelector('.identity-card'));
+});
+/* Escape closes identity gate only when user already has an auditor set (opened via Ganti) */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&S.auditor&&$('identityGate').classList.contains('show')){
+    $('identityGate').classList.remove('show');
+    releaseFocusTrap();
+  }
 });
 
 
@@ -456,6 +593,7 @@ $('changeAuditorBtn').addEventListener('click',()=>{
   window.zonesForActivePic=zonesForActivePic;
   window.zoneAllowedByAuditPic=zoneAllowedByAuditPic;
   window.activeTheme=activeTheme;
+  window.updateTopbarContext=updateTopbarContext;
   window.setTheme=setTheme;
   window.setAuditor=setAuditor;
   window.ensureAuditor=ensureAuditor;
@@ -464,6 +602,9 @@ $('changeAuditorBtn').addEventListener('click',()=>{
   window.updateGpsTimeLabel=updateGpsTimeLabel;
   window.openExportModal=openExportModal;
   window.closeExportModal=closeExportModal;
+  window.trapFocus=trapFocus;
+  window.releaseFocusTrap=releaseFocusTrap;
+  window.loadGpsForZone=loadGpsForZone;
 
   init();
 })();

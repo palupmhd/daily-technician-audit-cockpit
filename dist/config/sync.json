@@ -1,0 +1,4 @@
+{
+  "enabled": false,
+  "_comment": "Set 'enabled' to true jika menggunakan server.py untuk fitur sync notes tim. server.py akan otomatis menulis file ini."
+}

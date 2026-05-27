@@ -47,7 +47,7 @@ function setLayer(style){
   };
   const cfg=cfgs[style]||cfgs.osm_dark;
   S.baseLayer=L.tileLayer(cfg.url,cfg.opts).addTo(S.map);
-  S.baseLayer.on('tileerror',()=>{if(style!=='osm_soft'){toast('Tile error, fallback OSM Soft.');setLayer('osm_soft');$('mapStyleSelect').value='osm_soft';}});
+  S.baseLayer.on('tileerror',()=>{if(style!=='osm_soft'){toast('Tile error, fallback OSM Soft.');setLayer('osm_soft');}});
   S.baseLayer.bringToBack();
 }
 
@@ -359,11 +359,11 @@ function renderMap(route=null,{gpsOnly=false}={}){
   const teamDisplay=(()=>{
     const members=route.members||[];
     if(members.length<=2)return route.teamName;
-    return `${members[0]} +${members.length-1}`;
+    return `${members[0]} +${members.length-1} lainnya`;
   })();
   $('mapOverlay').innerHTML=`
     <span class="map-pill" title="${esc(route.zone)} · ${esc(teamDisplay)}" style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(route.zone)} · ${esc(teamDisplay)}</span>
-    <span class="map-pill ${sev==='high'?'danger':sev==='medium'?'warn':''}" title="Risk ${route.riskScore} · ${esc(route.riskLevel)}">Risk ${route.riskScore} · ${esc(route.riskLevel)}</span>
+    <span class="map-pill ${sev==='high'?'danger':sev==='medium'?'warn':''}" title="Skor risiko: ${route.riskScore}">Risiko ${route.riskScore} · ${typeof riskLabel==='function'?esc(riskLabel(route.riskLevel)):esc(route.riskLevel)}</span>
     <span class="map-pill secondary" title="${mappable.length} titik">${mappable.length} titik</span>
     ${totalKm>0?`<span class="map-pill secondary" title="Total estimasi jarak route">~${totalKm} km total</span>`:''}
     ${hi?`<span class="map-pill danger">⚠ ${hi} Tinggi</span>`:''}
@@ -408,7 +408,7 @@ function updateIssueHighlight(newId,oldId){
 
 function selectRoute(id){
   const prev=S.selectedRouteId;
-  S.selectedRouteId=id;S.selectedIssueId=null;
+  S.selectedRouteId=id;S.selectedIssueId=null;S.selectedIssueZone=null;
   const r=routeById(id);
   S.gpsFilterTouched=false;
   updateRouteHighlight(id,prev);
@@ -422,7 +422,7 @@ function selectIssue(id){
   const issue=issueById(id);if(!issue)return;
   const prevRoute=S.selectedRouteId;
   const prevIssue=S.selectedIssueId;
-  S.selectedIssueId=id;S.selectedRouteId=issue.routeId;
+  S.selectedIssueId=id;S.selectedIssueZone=issue._zone||null;S.selectedRouteId=issue.routeId;
   const r=routeById(issue.routeId);
   if(prevRoute!==issue.routeId){
     // Route changed — need full map + evidence render

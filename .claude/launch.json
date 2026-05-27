@@ -5,7 +5,8 @@
       "name": "audit-cockpit",
       "runtimeExecutable": "python",
       "runtimeArgs": ["server.py", "--port", "8787", "--local"],
-      "port": 8787
+      "port": 8787,
+      "autoPort": false
     }
   ]
 }
